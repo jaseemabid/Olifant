@@ -1,6 +1,6 @@
 module Main where
 
-import Lib
+-- import qualified Olifant
 
 main :: IO ()
-main = someFunc
+main = putStrLn "hello world"
