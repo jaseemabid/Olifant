@@ -29,13 +29,15 @@ number = IntegerType 64
 ---
 
 -- | Stack of instructions
-newtype CodegenState = CodegenState {
+data CodegenState = CodegenState {
     stack :: [Named Instruction]
+  , counter :: Int
   } deriving Show
 
 -- | Codegen state monad
-newtype Codegen a = Codegen { runCodegen :: State CodegenState a }
-    deriving (Functor, Applicative, Monad, MonadState CodegenState)
+newtype Codegen a = Codegen {
+    runCodegen :: State CodegenState a
+  } deriving (Functor, Applicative, Monad, MonadState CodegenState)
 
 -- | Specialized state monad holding a module
 newtype LLVM a = LLVM (State AST.Module a)
@@ -46,30 +48,46 @@ runLLVM :: AST.Module -> LLVM a -> AST.Module
 runLLVM modl (LLVM m) = execState m modl
 
 ---
---- State manipulators
----
-
--- | Add a definition to the module
-addDefn :: Definition -> LLVM ()
-addDefn d = do
-  defs <- gets moduleDefinitions
-  modify $ \s -> s { moduleDefinitions = defs ++ [d] }
-
--- Count
-count :: Codegen Int
-count = length <$> gets stack
-
----
---- Manipulate LLVM types
+--- Codegen handlers
 ---
 
 -- | Make a fresh unnamed variable; %4 or %5
 unnamed :: Codegen Name
-unnamed = UnName . fromIntegral <$> count
+unnamed =  do
+    n <- gets counter
+    modify $ \s -> s {counter = n + 1}
+    return $ UnName . fromIntegral $ n
+
+-- | Step through the AST
+--
+-- This is wrong, needs a rewrite
+step :: Calc -> Codegen Operand
+
+step (Number n) = return $ ConstantOperand $ Int 64 n
+
+step (Plus a b) = do
+    lhs <- step a :: Codegen Operand
+    rhs <- step b :: Codegen Operand
+
+    -- %result = fadd 1 2a
+    instr $ LLVM.AST.FAdd NoFastMathFlags lhs rhs []
+
 
 -- | References
 local ::  Name -> Operand
 local = LocalReference number
+
+-- | Return the last expression from a block
+--
+-- This is wrong. Should return strictly an unnamed variable
+terminator :: Codegen Terminator
+terminator = do
+  n <- gets counter
+  return $ Ret (Just $ local $ UnName $ fromIntegral n - 1) []
+
+---
+--- LLVM type handlers
+---
 
 -- | Create a module from name
 --
@@ -90,40 +108,20 @@ mkBasicBlock = do
 -- Converts a `Add 1 2` to `%6 = Add 1 2`
 instr :: Instruction -> Codegen Operand
 instr ins = do
-  n <- count
-  -- XXX: This is potentially wrong
-  let ref = Name $ show n
-  let bound = ref := ins
-  -- XXX: Abstract this away
-  modify $ \(CodegenState s) -> CodegenState $ s ++ [bound]
-  return $ local ref
+  new <- unnamed
+  let bound = new := ins
+  modify $ \s -> s {stack = stack s ++ [bound]}
+  return $ LocalReference number new
 
--- | Step through the AST
---
--- This is wrong, needs a rewrite
-step :: Calc -> Codegen Operand
-step (Number n) = return $ ConstantOperand $ Int 64 n
-step (Plus a b) = do
-    -- l <- unnamed
-    lhs <- step a
-    -- let ls = l := lhs
+---
+--- LLVM handlers
+---
 
-    -- r <- unnamed
-    rhs <- step b
-
-    -- let rs = r := rhs
-
-    instr $ LLVM.AST.FAdd NoFastMathFlags lhs rhs []
-
--- | Return the last expression from a block
---
--- This is wrong. Should return strictly an unnamed variable
-terminator :: Codegen Terminator
-terminator = do
-  n <- count
-  -- %5 -> return %5
-  let ret ref = Ret $ Just $ local $ Name $ show $ ref - 1
-  return $ ret n []
+-- | Add a definition to the module
+addDefn :: Definition -> LLVM ()
+addDefn d = do
+  definitions <- gets moduleDefinitions
+  modify $ \s -> s { moduleDefinitions = definitions ++ [d] }
 
 ---
 --- Everything below this line is crap
@@ -132,7 +130,7 @@ terminator = do
 run :: Calc -> LLVM AST.Module
 run calc = do
     module' <- get
-    let x = execState (runCodegen (step calc)) (CodegenState []) :: CodegenState
+    let x = execState (runCodegen (step calc)) (CodegenState [] 0)
     let block = evalState (runCodegen mkBasicBlock) x
 
     -- add block to main
@@ -150,7 +148,7 @@ run calc = do
         }
 
 seven :: Calc
-seven = Plus (Number 4)  (Plus (Number 1) (Number 2))
+seven = Plus (Number 4)  (Plus (Number 1121) (Number 2))
 
 liftError :: ExceptT String IO a -> IO a
 liftError = runExceptT >=> either fail return
@@ -161,6 +159,9 @@ main = do
 
     withContext $ \context -> do
         let newast = runLLVM modn (run seven)
+
+        -- print $ (basicBlocks moduleDefinitions $  newast)
+
         liftError $ withModuleFromAST context newast $ \m -> do
         llstr <- moduleLLVMAssembly m
         putStrLn llstr
