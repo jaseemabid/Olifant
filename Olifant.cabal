@@ -18,7 +18,9 @@ library
   exposed-modules:     Olifant
   build-depends:       base >= 4.7 && < 5
                      , bytestring
+                     , containers
                      , llvm-hs
+                     , llvm-hs-pure
                      , mtl
                      , tasty
                      , tasty-hunit
