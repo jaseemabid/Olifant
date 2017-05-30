@@ -3,14 +3,13 @@
 
 module Olifant where
 
-import           Control.Monad.Except
-import           Control.Monad.State
-import           LLVM.AST
-import qualified LLVM.AST as AST
-import           LLVM.AST.Constant
-import           LLVM.AST.Global
-import           LLVM.Context
-import           LLVM.Module
+import Control.Monad.Except
+import Control.Monad.State
+import LLVM.AST
+import LLVM.AST.Constant (Constant(..))
+import LLVM.AST.Global (Global(..))
+import LLVM.Context (withContext)
+import LLVM.Module (moduleLLVMAssembly, withModuleFromAST)
 
 ---
 --- Language definition
@@ -40,11 +39,11 @@ newtype Codegen a = Codegen {
   } deriving (Functor, Applicative, Monad, MonadState CodegenState)
 
 -- | Specialized state monad holding a module
-newtype LLVM a = LLVM (State AST.Module a)
-  deriving (Functor, Applicative, Monad, MonadState AST.Module)
+newtype LLVM a = LLVM (State Module a)
+  deriving (Functor, Applicative, Monad, MonadState Module)
 
 -- | Runs the operation with an initial state
-runLLVM :: AST.Module -> LLVM a -> AST.Module
+runLLVM :: Module -> LLVM a -> Module
 runLLVM modl (LLVM m) = execState m modl
 
 ---
@@ -92,7 +91,7 @@ terminator = do
 -- | Create a module from name
 --
 -- Note: Add source file as well for AOT compilation
-mkModule :: String -> AST.Module
+mkModule :: String -> Module
 mkModule label = defaultModule { moduleName = label }
 
 -- | Create a simple block with fixed terminator
@@ -127,7 +126,7 @@ addDefn d = do
 --- Everything below this line is crap
 ---
 
-run :: Calc -> LLVM AST.Module
+run :: Calc -> LLVM Module
 run calc = do
     module' <- get
     let x = execState (runCodegen (step calc)) (CodegenState [] 0)
@@ -155,13 +154,13 @@ liftError = runExceptT >=> either fail return
 
 main :: IO ()
 main = do
-    let modn = mkModule "calc" :: AST.Module
+    let modn = mkModule "calc" :: Module
+    let newast = runLLVM modn (run seven)
+    -- print $ (basicBlocks moduleDefinitions $  newast)
 
-    withContext $ \context -> do
-        let newast = runLLVM modn (run seven)
-
-        -- print $ (basicBlocks moduleDefinitions $  newast)
-
+    withContext $ \context ->
+        -- Execute a function after encoding the module in LLVM’s internal
+        -- representation. May throw 'EncodeException'.
         liftError $ withModuleFromAST context newast $ \m -> do
-        llstr <- moduleLLVMAssembly m
-        putStrLn llstr
+            llstr <- moduleLLVMAssembly m
+            putStrLn llstr
