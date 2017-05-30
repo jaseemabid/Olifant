@@ -1,3 +1,5 @@
+#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="http://thomasf.github.io/solarized-css/solarized-light.min.css" />
+
 * LLVM API documentation
 
 ** LLVM Types
