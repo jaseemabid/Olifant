@@ -1,0 +1,107 @@
+* LLVM API documentation
+
+** LLVM Types
+
+*** [[file:~/Projects/llvm-hs/llvm-hs-pure/src/LLVM/AST/Name.hs::data%20Name][Name]]
+
+Good old variable references
+
+#+BEGIN_SRC haskell
+data Name
+    = Name ShortByteString -- ^ a string name
+    | UnName Word -- ^ a number for a nameless thing
+#+END_SRC
+
+*** [[file:~/Projects/llvm-hs/llvm-hs-pure/src/LLVM/AST/Instruction.hs::data%20Named%20a][Named]]
+
+Instances of instructions may be given a name, allowing their results to be
+referenced as 'Operand's. Sometimes instructions - e.g. a call to a function
+returning void - don't need names.
+
+#+BEGIN_SRC haskell
+data Named a
+  = Name := a
+  | Do a
+  deriving (Eq, Read, Show, Typeable, Data, Generic)
+#+END_SRC
+
+*** [[file:~/Projects/llvm-hs/llvm-hs-pure/src/LLVM/AST/Operand.hs::data%20Operand][Operand]]
+
+An 'Operand' is roughly that which is an argument to an
+'LLVM.AST.Instruction.Instruction'
+
+#+BEGIN_SRC haskell
+data Operand
+  -- | %foo
+  = LocalReference Type Name
+  -- | 'Constant's include 'LLVM.AST.Constant.GlobalReference', for \@foo
+  | ConstantOperand Constant
+  | MetadataOperand Metadata
+#+END_SRC
+
+*** [[file:~/Projects/llvm-hs/llvm-hs-pure/src/LLVM/AST/Instruction.hs::data%20Terminator][Terminator]]
+
+Data terminators
+
+http://llvm.org/docs/LangRef.html#terminators
+
+#+BEGIN_SRC haskell
+data Terminator = Ret | CondBr | Br ...
+#+END_SRC
+
+*** [[file:~/Projects/llvm-hs/llvm-hs-pure/src/LLVM/AST/Instruction.hs::data%20Instruction][Instruction]]
+
+Non Terminator instructions
+- http://llvm.org/docs/LangRef.html#binaryops
+- http://llvm.org/docs/LangRef.html#bitwiseops
+- http://llvm.org/docs/LangRef.html#memoryops
+- http://llvm.org/docs/LangRef.html#otherops
+
+#+BEGIN_SRC haskell
+data Instruction = Add | | FAdd | Sub | FSub | Mul | FMul ...
+#+END_SRC
+
+*** [[file:~/Projects/llvm-hs/llvm-hs-pure/src/LLVM/AST/Global.hs::data%20BasicBlock%20%3D%20BasicBlock%20Name%20%5BNamed%20Instruction%5D%20(Named%20Terminator)][BasicBlock]]
+
+LLVM code in a function is a sequence of 'BasicBlock's each with a label, some
+instructions, and a terminator.
+
+#+BEGIN_SRC haskell
+data BasicBlock = BasicBlock Name [Named Instruction] (Named Terminator)
+#+END_SRC
+
+*** [[file:~/Projects/llvm-hs/llvm-hs-pure/src/LLVM/AST/Global.hs::data%20Global][Global]]
+
+http://llvm.org/docs/LangRef.html#global-variables
+
+#+BEGIN_SRC haskell
+data Global = GlobalVariable | GlobalAlias | Function
+
+Function {
+    returnType :: Type,
+    name :: Name,
+    basicBlocks :: [BasicBlock]
+  }
+#+END_SRC
+
+
+*** [[file:~/Projects/llvm-hs/llvm-hs-pure/src/LLVM/AST.hs::data%20Definition][Definition]]
+
+Any thing which can be at the top level of a 'Module'
+
+#+BEGIN_SRC haskell
+data Definition
+  = GlobalDefinition Global
+  | TypeDefinition Name (Maybe Type)
+  | ...
+#+END_SRC
+
+*** [[file:~/Projects/llvm-hs/llvm-hs-pure/src/LLVM/AST.hs::data%20Module%20%3D][Module]]
+
+#+BEGIN_SRC haskell
+data Module =
+  Module {
+    moduleName :: ShortByteString,
+    moduleDefinitions :: [Definition]
+  }
+#+END_SRC
