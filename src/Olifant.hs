@@ -74,8 +74,7 @@ step (Plus a b) = do
     rhs <- step b :: Codegen Operand
 
     -- %result = fadd 1 2a
-    instr $ LLVM.AST.FAdd NoFastMathFlags lhs rhs []
-
+    instr $ LLVM.AST.Add False False lhs rhs []
 
 -- | References
 local ::  Name -> Operand
@@ -160,7 +159,7 @@ run calc = do
 ---
 
 progn :: Calc
-progn = Plus (Number 4)  (Plus (Number 1121) (Number 2))
+progn = Plus (Number 1)  (Plus (Number 2) (Number 3))
 
 ---
 --- Top level data
