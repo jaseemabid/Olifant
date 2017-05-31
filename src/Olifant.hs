@@ -3,13 +3,16 @@
 
 module Olifant where
 
+import Prelude hiding (mod)
 import Control.Monad.Except
 import Control.Monad.State
+import Data.Text.Lazy.IO as TIO
 import LLVM.AST
 import LLVM.AST.Constant (Constant(..))
 import LLVM.AST.Global (Global(..))
 import LLVM.Context (withContext)
 import LLVM.Module (moduleLLVMAssembly, withModuleFromAST)
+import LLVM.Pretty (ppllvm)
 
 ---
 --- Language definition
@@ -152,19 +155,33 @@ run calc = do
       codegen :: CodegenState
       codegen = CodegenState [] 0
 
+---
+--- A simple sample program
+---
 
+progn :: Calc
+progn = Plus (Number 4)  (Plus (Number 1121) (Number 2))
+
+---
+--- Top level data
+---
+
+-- | Module to encapsulate everything
+modn :: Module
+modn = mkModule "calc"
+
+-- | Generate native code with C++ FFI
 toLLVM :: Module -> IO ()
 toLLVM modl = withContext $ \context -> do
     errOrLLVM <- runExceptT $ withModuleFromAST context modl moduleLLVMAssembly
     case errOrLLVM of
-      Left err -> putStrLn $ "error: " ++ err
-      Right llvm -> putStrLn llvm
+      Left err -> Prelude.putStrLn $ "error: " ++ err
+      Right llvm -> Prelude.putStrLn llvm
 
+-- | Generate native code with C++ FFI
+pretty :: Calc -> IO ()
+pretty prog = TIO.putStrLn $ ppllvm $ runLLVM modn (run prog)
+
+-- | Print compiled LLVM IR to stdout
 main :: IO ()
 main = toLLVM $ runLLVM modn (run progn)
-  where
-    modn :: Module
-    modn = mkModule "calc"
-
-    progn :: Calc
-    progn = Plus (Number 4)  (Plus (Number 1121) (Number 2))

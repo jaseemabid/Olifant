@@ -21,6 +21,7 @@ library
                      , containers
                      , llvm-hs
                      , llvm-hs-pure
+                     , llvm-hs-pretty
                      , mtl
                      , tasty
                      , tasty-hunit
