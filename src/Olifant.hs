@@ -84,10 +84,10 @@ local = LocalReference number
 -- | Return the last expression from a block
 --
 -- This is wrong. Should return strictly an unnamed variable
-terminator :: Codegen Terminator
+terminator :: Codegen (Named Terminator)
 terminator = do
   n <- gets counter
-  return $ Ret (Just $ local $ UnName $ fromIntegral n - 1) []
+  return $ Do $ Ret (Just $ local $ UnName $ fromIntegral n - 1) []
 
 ---
 --- LLVM type handlers
@@ -105,7 +105,7 @@ mkBasicBlock = do
     instructions <- gets stack
     term <- terminator
     new <- unnamed
-    return $ BasicBlock (Name "entry") instructions (new := term)
+    return $ BasicBlock (Name "entry") instructions term
 
 -- | Name an instruction and add to stack
 --
