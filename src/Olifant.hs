@@ -38,7 +38,9 @@ newtype Codegen a = Codegen {
     runCodegen :: State CodegenState a
   } deriving (Functor, Applicative, Monad, MonadState CodegenState)
 
--- | Specialized state monad holding a module
+-- | A specialized state monad holding a Module
+--
+-- The state monad upon evaluation will emit a Module containing the AST.
 newtype LLVM a = LLVM (State Module a)
   deriving (Functor, Applicative, Monad, MonadState Module)
 
@@ -129,8 +131,8 @@ addDefn d = do
 run :: Calc -> LLVM Module
 run calc = do
     module' <- get
-    let x = execState (runCodegen (step calc)) (CodegenState [] 0)
-    let block = evalState (runCodegen mkBasicBlock) x
+    let instructions = execState (runCodegen (step calc)) codegen
+    let block = evalState (runCodegen mkBasicBlock) instructions
 
     -- add block to main
     let main'' = GlobalDefinition $ main' [block]
@@ -146,21 +148,23 @@ run calc = do
           , basicBlocks = blocks
         }
 
-seven :: Calc
-seven = Plus (Number 4)  (Plus (Number 1121) (Number 2))
+      -- | Default CodegenState
+      codegen :: CodegenState
+      codegen = CodegenState [] 0
 
-liftError :: ExceptT String IO a -> IO a
-liftError = runExceptT >=> either fail return
+
+toLLVM :: Module -> IO ()
+toLLVM modl = withContext $ \context -> do
+    errOrLLVM <- runExceptT $ withModuleFromAST context modl moduleLLVMAssembly
+    case errOrLLVM of
+      Left err -> putStrLn $ "error: " ++ err
+      Right llvm -> putStrLn llvm
 
 main :: IO ()
-main = do
-    let modn = mkModule "calc" :: Module
-    let newast = runLLVM modn (run seven)
-    -- print $ (basicBlocks moduleDefinitions $  newast)
+main = toLLVM $ runLLVM modn (run progn)
+  where
+    modn :: Module
+    modn = mkModule "calc"
 
-    withContext $ \context ->
-        -- Execute a function after encoding the module in LLVM’s internal
-        -- representation. May throw 'EncodeException'.
-        liftError $ withModuleFromAST context newast $ \m -> do
-            llstr <- moduleLLVMAssembly m
-            putStrLn llstr
+    progn :: Calc
+    progn = Plus (Number 4)  (Plus (Number 1121) (Number 2))
