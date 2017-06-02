@@ -5,4 +5,5 @@ extra-deps:
 
 packages:
   - .
-  - llvm-hs-pretty
+  - location: llvm-hs-pretty
+    extra-dep: true
