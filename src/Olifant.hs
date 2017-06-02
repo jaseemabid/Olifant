@@ -103,7 +103,6 @@ mkBasicBlock :: Codegen BasicBlock
 mkBasicBlock = do
     instructions <- gets stack
     term <- terminator
-    new <- unnamed
     return $ BasicBlock (Name "entry") instructions term
 
 -- | Name an instruction and add to stack
