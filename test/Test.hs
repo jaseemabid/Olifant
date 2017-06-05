@@ -22,7 +22,7 @@ main :: IO ()
 main = defaultMain tests
 
 tests :: TestTree
-tests = testGroup "Unit Tests" []
+tests = testGroup "Unit Tests" [simple]
 
 simple :: TestTree
 simple = testCase "Compile simple arithmentic" $ compile progn @?= m
