@@ -93,15 +93,17 @@ load (LocalReference _type n) = unnamed $ Load False ptr Nothing 0 []
     ptr = LocalReference pointer n
 load _ = error "Cannot load anything other than local pointer reference"
 
+-- | Make an `alloca` instruction
 alloca :: Type -> Maybe String -> Codegen Operand
 alloca ty Nothing = unnamed $ Alloca ty Nothing 0 []
 alloca ty (Just ref) = named ref $ Alloca ty Nothing 0 []
 
-assign :: String -> Operand -> Codegen ()
-assign var x = modify $ \s -> s {symtab = (var, x) : symtab s}
-
 add :: Operand -> Operand -> Instruction
 add lhs rhs = LLVM.AST.Add False False lhs rhs []
+
+-- | Add a symbol table binding
+assign :: String -> Operand -> Codegen ()
+assign var x = modify $ \s -> s {symtab = (var, x) : symtab s}
 
 ---
 --- AST Manipulation
@@ -118,7 +120,7 @@ unnamed ins = do
     new <- fresh
     push $ new := ins
     return $ LocalReference number new
-    -- | Make a fresh unnamed variable; %4 or %5
+    -- Make a fresh unnamed variable; %4 or %5
   where
     fresh :: Codegen Name
     fresh = do
@@ -156,12 +158,25 @@ step (Plus a b) = do
     lhs <- step a :: Codegen Operand
     rhs <- step b :: Codegen Operand
     unnamed $ add lhs rhs
+-- | Assign an operand into a temporary variable
+--
+-- > @Assignment "x" (1 + 2)@ is roughly translated into
+--
+-- > %1 = 1 + 2             ; Step function returns %1 for sub tree
+-- > %x = alloca i64        ; Allocate a new variable; might be unnecessary
+-- > store i64 %0, i64* %x  ; Copy %1 into %x
+-- > %2 = load i64, i64* %x ; Load it back
+-- > ret i64 %2             ; Return the alias
+--
+-- This approach feels pretty silly. Passing a name into step function to store
+-- the result might be the right way to do this.
+--
 step (Assignment bind ref) = do
     result <- step ref
     ptr <- alloca number (Just bind) :: Codegen Operand
     store ptr result
     assign bind ptr
-    return ptr
+    load ptr
 -- | Find the operand for the variable from the symbol table and return it.
 step (Binding binding) = do
     symbols <- gets symtab
@@ -178,9 +193,7 @@ mkBasicBlock = BasicBlock (Name "entry")
 
 -- | Return the last expression from a block
 mkTerminator :: Operand -> Codegen (Named Terminator)
-mkTerminator result = do
-    r <- load result
-    return $ Do $ Ret (Just r) []
+mkTerminator result = return $ Do $ Ret (Just result) []
 
 ---
 --- Code generation
