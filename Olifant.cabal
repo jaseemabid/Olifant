@@ -44,6 +44,9 @@ test-suite Olifant-test
   main-is:             Test.hs
   build-depends:       Olifant
                      , base
+                     , llvm-hs
+                     , llvm-hs-pure
+                     , llvm-hs-pretty
                      , tasty
                      , tasty-hunit
   ghc-options:         -Wall -fwarn-tabs -threaded -rtsopts -with-rtsopts=-N

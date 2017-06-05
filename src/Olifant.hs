@@ -194,13 +194,6 @@ mkTerminator result = do
     return $ Do $ Ret (Just r) []
 
 ---
---- Default values
----
-
-progn :: Calc
-progn = Assignment "a" $ Plus (Number 1) (Plus (Number 2) (Number 3))
-
----
 --- Code generation
 ---
 
@@ -243,5 +236,5 @@ pretty :: Calc -> IO ()
 pretty = TIO.putStrLn . ppllvm . compile
 
 -- | Print compiled LLVM IR to stdout
-main :: IO ()
-main = toLLVM $ compile progn
+native :: Calc -> IO ()
+native = toLLVM . compile
