@@ -1,0 +1,7 @@
+#+TITLE: Issues
+
+* OP load, store and alloca
+  When do I need them? What are things LLVM local variables can't do?
+
+* Compile named local variables without alloc/store and load
+  I'm not sure the interface exposed by step is a good enough to do this.
