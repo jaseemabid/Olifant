@@ -28,6 +28,7 @@ data Calc
     | Binding String
     | Assignment String
                  Calc
+    deriving (Read, Show)
 
 -- | 64 bit integer
 number :: Type
@@ -213,14 +214,14 @@ run calc = do
         {name = Name "main", returnType = number, basicBlocks = blocks}
 
 -- | Generate native code with C++ FFI
-toLLVM :: Module -> IO ()
+toLLVM :: Module -> IO String
 toLLVM mod =
     withContext $ \context -> do
         errOrLLVM <-
             runExceptT $ withModuleFromAST context mod moduleLLVMAssembly
         case errOrLLVM of
-            Left err -> Prelude.putStrLn $ "error: " ++ err
-            Right llvm -> Prelude.putStrLn llvm
+            Left err -> return $ "Error: " ++ err
+            Right llvm -> return llvm
 
 compile :: Calc -> Module
 compile prog = evalState (runCodegen (run prog)) def
@@ -230,5 +231,5 @@ pretty :: Calc -> IO ()
 pretty = TIO.putStrLn . ppllvm . compile
 
 -- | Print compiled LLVM IR to stdout
-native :: Calc -> IO ()
-native = toLLVM . compile
+native :: Calc -> IO String
+native ast = toLLVM $ compile ast
