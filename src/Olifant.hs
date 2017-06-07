@@ -1,12 +1,15 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module Olifant where
+module Olifant
+    ( compile
+    , native
+    , pretty
+    ) where
 
 import qualified Prelude as P
-import           Protolude hiding (Type, mod)
+import           Protolude hiding (Type, mod, local)
 
 import           LLVM.AST
 import           LLVM.AST.AddrSpace
@@ -22,8 +25,10 @@ import           LLVM.Pretty (ppllvm)
 data Calc
     = Number Integer
     | Plus Calc Calc
-    | Binding Text
-    | Assignment Text Calc
+    -- ^ Classic lambda calculus
+    | Var Text
+    | App Calc Calc
+    | Lam Text Text Calc
     deriving (Read, Show)
 
 -- * Types
@@ -85,18 +90,13 @@ blockState name' = BlockState {name = name', stack = [], term = Nothing}
 -- * Handle `GenState`
 
 -- Add a global definition to the LLVM module
-addDefn :: Global -> Codegen Module
+addDefn :: Global -> Codegen ()
 addDefn g = do
     st <- get
     modl <- gets mod
     let defs = moduleDefinitions modl ++ [GlobalDefinition g]
     let mod' = modl {moduleDefinitions = defs}
     put $ st {mod = mod'}
-    return mod'
-
--- Add a list of global definitions to the LLVM module
-addDefns :: [Global] -> Codegen Module
-addDefns = foldr ((>>) . addDefn) (gets mod)
 
 -- * Handle `BlockState`
 
@@ -189,6 +189,24 @@ basicBlock = BasicBlock (Name "entry")
 terminator :: Operand -> Codegen (Named Terminator)
 terminator result = return $ Do $ Ret (Just result) []
 
+-- | Get a constant operand from number
+cons :: Integer -> Operand
+cons n = ConstantOperand $ Int 64 n
+
+-- | Get a reference operand from a string
+local :: Text -> Operand
+local v = LocalReference number $ Name $ toS v
+
+-- | Define a function
+define ::  Type -> Text -> [(Type, Name)] -> [BasicBlock] -> Codegen ()
+define retty label argtys body = addDefn $
+  functionDefaults {
+    name        = Name $ toS label
+  , parameters  = ([Parameter ty nm [] | (ty, nm) <- argtys], False)
+  , returnType  = retty
+  , basicBlocks = body
+  }
+
 -- * AST Traversal
 
 -- | Step through the AST
@@ -196,71 +214,45 @@ terminator result = return $ Do $ Ret (Just result) []
 -- Step should return an operand, which is the LHS of the operand it just dealt
 -- with. Step is free to push instructions to the current block.
 step :: Calc -> Codegen Operand
+
 -- | Make a constant operand out of the constant and return it.
-step (Number n) = return $ ConstantOperand $ Int 64 n
+step (Number n) = return $ cons n
+
 -- | Get the reference to the operands on LHS and RH'S. Push to stack the
 -- instruction to compute the new value and return the operand that refers to
 -- the new value.
 step (Plus a b) = do
-    lhs <- step a :: Codegen Operand
-    rhs <- step b :: Codegen Operand
+    lhs <- step a
+    rhs <- step b
     unnamed $ add lhs rhs
--- | Assign an operand into a temporary variable
---
--- > @Assignment "x" (1 + 2)@ is roughly translated into
---
--- > %1 = 1 + 2             ; Step function returns %1 for sub tree
--- > %x = alloca i64        ; Allocate a new variable; might be unnecessary
--- > store i64 %0, i64* %x  ; Copy %1 into %x
--- > %2 = load i64, i64* %x ; Load it back
--- > ret i64 %2             ; Return the alias
---
--- This approach feels pretty silly. Passing a name into step function to store
--- the result might be the right way to do this.
---
-step (Assignment bind ref) = do
-    result <- step ref
-    ptr <- alloca number (Just bind) :: Codegen Operand
-    store ptr result
-    load ptr
 
 -- | Find the operand for the variable from the symbol table and return it.
-step (Binding binding) = return (LocalReference number $ Name $ toS binding)
+step (Var var) = return $ local var
+
+step (Lam fn _arg body) = do
+    -- Make a new block for this function and add to `GenState`
+    modify $ \s -> s {blocks = blocks s ++ [blockState fn]}
+
+    -- [TODO] - Should do the closure business
+    result <- step body
+    term' <- terminator result
+    instructions <- stack <$> current
+
+    -- define ::  Type -> Text -> [(Type, Name)] -> [BasicBlock] -> Codegen ()
+    define number fn [(number, "x")] [basicBlock instructions term']
+
+    return $ local fn
 
 ---
 --- Code generation
 ---
 
 compile :: [Calc] -> Module
-compile prog = evalState (runCodegen (run prog >>= addDefns)) genState
+compile prog = mod $ execState (runCodegen (run prog)) genState
   where
-
-    run :: [Calc] -> Codegen [Global]
-    run = mapM run1
-
-    -- | Compute a single block from one line of source
-    --
-    -- A top level expression is either a definition (function or variable) or
-    -- its an expression, which will be compiled to "main".
-    run1 :: Calc -> Codegen Global
-    run1 =
-        \case
-            (Assignment var val) -> run' var val
-            val -> run' "main" val
-      where
-        run' var val = do
-            -- Make a new block for this function and add to `GenState`
-            modify $ \s -> s {blocks = blocks s ++ [blockState var]}
-            result <- step val
-            term' <- terminator result
-            ins <- stack <$> current
-            let block = basicBlock ins term'
-            return $ fn var [block]
-
-    fn :: Text -> [BasicBlock] -> Global
-    fn fnName blocks' =
-        functionDefaults
-        {name = Name $ toS fnName, returnType = number, basicBlocks = blocks'}
+    -- | Step through the AST and throw away the results
+    run :: [Calc] -> Codegen ()
+    run = mapM_ step
 
 -- | Generate native code with C++ FFI
 toLLVM :: Module -> IO P.String
