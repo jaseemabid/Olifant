@@ -8,9 +8,11 @@ module Main where
 
 import Olifant
 
+import Prelude
 import System.Environment (getArgs)
 import System.FilePath (replaceExtension)
 import System.IO
+
 
 usage :: IO ()
 usage = putStrLn "Usage: olifant [-vh] [file] "

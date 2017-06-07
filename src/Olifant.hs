@@ -1,22 +1,22 @@
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 
 module Olifant where
 
-import Prelude hiding (mod)
+import qualified Prelude as P
+import           Protolude hiding (Type, mod)
 
-import Control.Monad.Except
-import Control.Monad.State
-import Data.Text.Lazy.IO as TIO
-import LLVM.AST
-import LLVM.AST.AddrSpace
-import LLVM.AST.Constant
-import LLVM.AST.Global
-import LLVM.Context (withContext)
-import LLVM.Module (moduleLLVMAssembly, withModuleFromAST)
-import LLVM.Pretty (ppllvm)
+import           LLVM.AST
+import           LLVM.AST.AddrSpace
+import           LLVM.AST.Constant
+import           LLVM.AST.Global
+import           LLVM.Context (withContext)
+import           LLVM.Module (moduleLLVMAssembly, withModuleFromAST)
+import           LLVM.Pretty (ppllvm)
 
 -- * Language definition
 
@@ -24,8 +24,8 @@ import LLVM.Pretty (ppllvm)
 data Calc
     = Number Integer
     | Plus Calc Calc
-    | Binding String
-    | Assignment String Calc
+    | Binding Text
+    | Assignment Text Calc
     deriving (Read, Show)
 
 -- * Types
@@ -41,7 +41,7 @@ pointer = PointerType number $ AddrSpace 0
 -- * State types
 
 -- | Symbol tables maps a string to a LLVM operand
-type SymbolTable = [(String, Operand)]
+type SymbolTable = [(Text, Operand)]
 
 -- | State of the complete program
 data GenState = GenState
@@ -61,7 +61,7 @@ data GenState = GenState
 --
 -- As of now, a function contains just one block.
 data BlockState = BlockState
-  { name :: String                   -- Name of the block
+  { name :: Text                   -- Name of the block
   , stack :: [Named Instruction]     -- List of operations
   , term :: Maybe (Named Terminator) -- Block terminator
   } deriving (Show)
@@ -81,7 +81,7 @@ genState = GenState
            }
 
 -- | Default `BlockState`
-blockState :: String -> BlockState
+blockState :: Text -> BlockState
 blockState name' = BlockState {name = name', stack = [], term = Nothing}
 
 -- * Handle `GenState`
@@ -104,7 +104,7 @@ addDefns = foldr ((>>) . addDefn) (gets mod)
 
 -- | Get the current block
 current :: Codegen BlockState
-current = head <$> gets blocks
+current = P.head <$> gets blocks
 
 -- | Push a named instruction to the stack of the active block
 push :: Named Instruction -> Codegen ()
@@ -117,7 +117,7 @@ push ins = do
       -- Replace first block with new block
       replace :: [BlockState] -> BlockState -> [BlockState]
       replace (_:xs) newBlock = newBlock:xs
-      replace x _ = "Block missing" ??? show x
+      replace _ _ = notImplemented
 
 -- | Name an instruction and add to stack.
 --
@@ -145,11 +145,11 @@ unnamed ins = do
 --  - Adds @%foo = Add 1 2@ to the stack
 --  - Returns @%foo@
 --
-named :: String -> Instruction -> Codegen Operand
+named :: Text -> Instruction -> Codegen Operand
 named str ins = push (op := ins) >> return (LocalReference number op)
   where
     op :: Name
-    op = Name str
+    op = Name $ toS str
 
 -- * Primitive wrappers
 
@@ -175,7 +175,7 @@ load (LocalReference _type n) = unnamed $ Load False ptr Nothing 0 []
 load _ = error "Cannot load anything other than local pointer reference"
 
 -- | Make an `alloca` instruction
-alloca :: Type -> Maybe String -> Codegen Operand
+alloca :: Type -> Maybe Text -> Codegen Operand
 alloca ty Nothing = unnamed $ Alloca ty Nothing 0 []
 alloca ty (Just ref) = named ref $ Alloca ty Nothing 0 []
 
@@ -227,7 +227,7 @@ step (Assignment bind ref) = do
     load ptr
 
 -- | Find the operand for the variable from the symbol table and return it.
-step (Binding binding) = return (LocalReference number $ Name binding)
+step (Binding binding) = return (LocalReference number $ Name $ toS binding)
 
 ---
 --- Code generation
@@ -259,13 +259,13 @@ compile prog = evalState (runCodegen (run prog >>= addDefns)) genState
             let block = basicBlock ins term'
             return $ fn var [block]
 
-    fn :: String -> [BasicBlock] -> Global
+    fn :: Text -> [BasicBlock] -> Global
     fn fnName blocks' =
         functionDefaults
-        {name = Name fnName, returnType = number, basicBlocks = blocks'}
+        {name = Name $ toS fnName, returnType = number, basicBlocks = blocks'}
 
 -- | Generate native code with C++ FFI
-toLLVM :: Module -> IO String
+toLLVM :: Module -> IO P.String
 toLLVM modl =
     withContext $ \context -> do
         errOrLLVM <-
@@ -276,12 +276,8 @@ toLLVM modl =
 
 -- | Generate native code with C++ FFI
 pretty :: [Calc] -> IO ()
-pretty ast = TIO.putStrLn . ppllvm $ compile ast
+pretty ast = putStrLn . ppllvm $ compile ast
 
 -- | Print compiled LLVM IR to stdout
-native :: [Calc] -> IO String
+native :: [Calc] -> IO P.String
 native ast = toLLVM $ compile ast
-
--- | Compiler Error
-(???) :: String -> String -> a
-(???) msg debug = error $ "Compiler Error\n" ++ msg ++ "\n" ++ debug

@@ -1,8 +1,6 @@
-{-# LANGUAGE DuplicateRecordFields #-}
-
 module Main where
 
-import Prelude hiding (read)
+import Protolude
 
 import LLVM.AST
 import LLVM.AST.AddrSpace

@@ -18,17 +18,17 @@ library
   exposed-modules:     Olifant
   build-depends:       base >= 4.7 && < 5
                      , bytestring
-                     , containers
                      , llvm-hs
-                     , llvm-hs-pure
                      , llvm-hs-pretty
+                     , llvm-hs-pure
                      , mtl
+                     , protolude
                      , tasty
                      , tasty-hunit
                      , text
-                     , data-default
   default-language:    Haskell2010
   ghc-options:         -Wall -fwarn-tabs
+  default-extensions:  NoImplicitPrelude, OverloadedStrings, DuplicateRecordFields
 
 executable olifant
   hs-source-dirs:      exe
@@ -38,6 +38,7 @@ executable olifant
                      , filepath
                      , Olifant
   default-language:    Haskell2010
+  default-extensions:  NoImplicitPrelude, OverloadedStrings, DuplicateRecordFields
 
 test-suite Olifant-test
   type:                exitcode-stdio-1.0
@@ -45,13 +46,16 @@ test-suite Olifant-test
   main-is:             Test.hs
   build-depends:       Olifant
                      , base
+                     , bytestring
                      , llvm-hs
-                     , llvm-hs-pure
                      , llvm-hs-pretty
+                     , llvm-hs-pure
+                     , protolude
                      , tasty
                      , tasty-hunit
   ghc-options:         -Wall -fwarn-tabs -threaded -rtsopts -with-rtsopts=-N
   default-language:    Haskell2010
+  default-extensions:  NoImplicitPrelude, OverloadedStrings, DuplicateRecordFields
 
 source-repository head
   type:     git
