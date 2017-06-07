@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 module Olifant where
@@ -236,7 +237,6 @@ mkTerminator result = return $ Do $ Ret (Just result) []
 compile :: [Calc] -> Module
 compile prog = runLLVM emptyModule compile'
   where
-
     compile' :: LLVM Module
     compile' = do
         modify $ \s -> s {moduleDefinitions = map GlobalDefinition blocks'}
@@ -252,19 +252,19 @@ compile prog = runLLVM emptyModule compile'
     -- A top level expression is either a definition (function or variable) or
     -- its an expression, which will be compiled to "main".
     run1 :: Calc -> Codegen Global
-    run1 (Assignment var val) = do
-        -- Make a new block for this function and add to `GenState`
-        modify $ \s -> s {blocks = blocks s ++ [(var, def :: BlockState)]}
-
-        result <- step val
-        terminator <- mkTerminator result
-        ins <- stack <$> current
-        let block = mkBasicBlock ins terminator :: BasicBlock
-
-        return $ fn var [block]
-
-    --- XXX: Might end up with bottom
-    run1 calc = run1 (Assignment "main" calc)
+    run1 =
+        \case
+            (Assignment var val) -> run' var val
+            val -> run' "main" val
+      where
+        run' var val = do
+            -- Make a new block for this function and add to `GenState`
+            modify $ \s -> s {blocks = blocks s ++ [(var, def :: BlockState)]}
+            result <- step val
+            terminator <- mkTerminator result
+            ins <- stack <$> current
+            let block = mkBasicBlock ins terminator :: BasicBlock
+            return $ fn var [block]
 
     fn :: String -> [BasicBlock] -> Global
     fn fnName blocks' =
