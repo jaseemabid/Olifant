@@ -28,8 +28,8 @@ simple :: TestTree
 simple = testCase "Compile simple arithmentic" $ compile progn @?= m
 
 -- | Sample program `a = 1 + (2 + 3)`
-progn :: Calc
-progn = Assignment "a" $ Plus (Number 1) (Plus (Number 2) (Number 3))
+progn :: [Calc]
+progn = [Assignment "a" $ Plus (Number 1) (Plus (Number 2) (Number 3))]
 
 -- | Module for `a = 1 + (2 + 3)`
 m :: Module
