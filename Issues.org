@@ -5,3 +5,11 @@
 
 * Compile named local variables without alloc/store and load
   I'm not sure the interface exposed by step is a good enough to do this.
+
+* Change type of GenState.currentBlock from String to Block?
+
+* Remove containers
+
+* Remove default instances of block/gen state if possible. Undefined is ugly
+
+* Why do I even need a symbol table ?

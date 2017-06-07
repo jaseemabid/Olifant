@@ -20,6 +20,7 @@ import LLVM.Pretty (ppllvm)
 ---
 --- Language definition
 ---
+
 -- | Simple integer language with just numbers, + and -
 data Calc
     = Number Integer
@@ -39,25 +40,49 @@ pointer :: Type
 pointer = PointerType number $ AddrSpace 0
 
 ---
---- State
+--- Code generator state
 ---
+
 -- | Symbol tables maps a string to a LLVM operand
 type SymbolTable = [(String, Operand)]
 
--- | Stack of instructions
-data CodegenState = CodegenState
-    { stack :: [Named Instruction] -- List of operations
-    , symtab :: SymbolTable -- Symbol table
+-- | State of the complete program
+--
+-- The LLVM Module can be constructed in one step from this state. There
+-- shouldn't be the need to build another state monad with LLVM.Module in it.
+data GenState = GenState
+    { blocks :: [(String, BlockState)] -- Blocks, ordered and named
+     , symtab :: SymbolTable            -- Symbol table
     , counter :: Int
     } deriving (Show)
 
-instance Default CodegenState where
-    def = CodegenState {stack = [], symtab = [], counter = 0}
+-- | State of a single block
+--
+-- A function definition contains a list of basic blocks, forming the Control
+-- Flow Graph for the function. Each basic block may optionally start with a
+-- label (giving the basic block a symbol table entry), contains a list of
+-- instructions, and ends with a terminator instruction (such as a branch or
+-- function return).
+--
+-- As of now, I should be able to encode a function with a single block.
+data BlockState =
+    BlockState
+    { stack :: [Named Instruction]     -- List of operations
+    , term :: Maybe (Named Terminator) -- Block terminator
+    } deriving (Show)
+
+instance Default GenState where
+    def = GenState { blocks = []
+                   , symtab = []
+                   , counter = 0}
+
+instance Default BlockState where
+    def = BlockState {stack = [], term = Nothing}
 
 -- | Codegen state monad
 newtype Codegen a = Codegen
-    { runCodegen :: State CodegenState a
-    } deriving (Functor, Applicative, Monad, MonadState CodegenState)
+    { runCodegen :: State GenState a
+    } deriving (Functor, Applicative, Monad, MonadState GenState)
 
 -- | A specialized state monad holding a Module
 --
@@ -70,9 +95,16 @@ newtype LLVM a =
 runLLVM :: Module -> LLVM a -> Module
 runLLVM modl (LLVM m) = execState m modl
 
+-- | Get the current block
+--
+-- [XXX] - Make this function total
+current :: Codegen BlockState
+current = snd . head <$> gets blocks
+
 ---
 --- Primitive wrappers
 ---
+
 -- | Variable assignment
 --
 -- Converts expression of the form `%1 = 2` to `* %1 = 2`
@@ -101,10 +133,6 @@ alloca ty (Just ref) = named ref $ Alloca ty Nothing 0 []
 
 add :: Operand -> Operand -> Instruction
 add lhs rhs = LLVM.AST.Add False False lhs rhs []
-
--- | Add a symbol table binding
-assign :: String -> Operand -> Codegen ()
-assign var x = modify $ \s -> s {symtab = (var, x) : symtab s}
 
 ---
 --- AST Manipulation
@@ -141,9 +169,18 @@ named str ins = push (op := ins) >> return (LocalReference number op)
     op :: Name
     op = Name str
 
--- | Push a named instruction to stack
+-- | Push a named instruction to the stack of the active block
 push :: Named Instruction -> Codegen ()
-push ins = modify $ \s -> s {stack = stack s ++ [ins]}
+push ins = do
+    active <- current
+    let block = active {stack = stack active ++ [ins]}
+
+    modify $ \s -> s { blocks = replace (blocks s) block}
+  where
+      -- Replace first block with new block
+      replace :: [(String, BlockState)] -> BlockState -> [(String, BlockState)]
+      replace ((x, _):xs) newBlock = (x,  newBlock):xs
+      replace x _ = "Block missing" ??? show x
 
 -- | Step through the AST
 --
@@ -176,14 +213,10 @@ step (Assignment bind ref) = do
     result <- step ref
     ptr <- alloca number (Just bind) :: Codegen Operand
     store ptr result
-    assign bind ptr
     load ptr
+
 -- | Find the operand for the variable from the symbol table and return it.
-step (Binding binding) = do
-    symbols <- gets symtab
-    case lookup binding symbols of
-        Just op -> return op
-        Nothing -> error $ "> Undefined variable " ++ binding
+step (Binding binding) = return (LocalReference number $ Name binding)
 
 ---
 --- Module level elements
@@ -199,19 +232,46 @@ mkTerminator result = return $ Do $ Ret (Just result) []
 ---
 --- Code generation
 ---
-run :: Calc -> Codegen Module
-run calc = do
-    result <- step calc
-    terminator <- mkTerminator result
-    ins <- gets stack
-    let block = mkBasicBlock ins terminator
-    let main'' = GlobalDefinition $ main' [block]
-    return $ defaultModule {moduleName = "calc", moduleDefinitions = [main'']}
+
+compile :: [Calc] -> Module
+compile prog = runLLVM emptyModule compile'
   where
-    main' :: [BasicBlock] -> Global
-    main' blocks =
+
+    compile' :: LLVM Module
+    compile' = do
+        modify $ \s -> s {moduleDefinitions = map GlobalDefinition blocks'}
+        get
+      where
+        blocks' = evalState (runCodegen (run prog)) def
+
+    run :: [Calc] -> Codegen [Global]
+    run = mapM run1
+
+    -- | Compute a single block from one line of source
+    --
+    -- A top level expression is either a definition (function or variable) or
+    -- its an expression, which will be compiled to "main".
+    run1 :: Calc -> Codegen Global
+    run1 (Assignment var val) = do
+        -- Make a new block for this function and add to `GenState`
+        modify $ \s -> s {blocks = blocks s ++ [(var, def :: BlockState)]}
+
+        result <- step val
+        terminator <- mkTerminator result
+        ins <- stack <$> current
+        let block = mkBasicBlock ins terminator :: BasicBlock
+
+        return $ fn var [block]
+
+    --- XXX: Might end up with bottom
+    run1 calc = run1 (Assignment "main" calc)
+
+    fn :: String -> [BasicBlock] -> Global
+    fn fnName blocks' =
         functionDefaults
-        {name = Name "main", returnType = number, basicBlocks = blocks}
+        {name = Name fnName, returnType = number, basicBlocks = blocks'}
+
+    emptyModule = defaultModule {moduleName = "calc"}
 
 -- | Generate native code with C++ FFI
 toLLVM :: Module -> IO String
@@ -223,13 +283,14 @@ toLLVM mod =
             Left err -> return $ "Error: " ++ err
             Right llvm -> return llvm
 
-compile :: Calc -> Module
-compile prog = evalState (runCodegen (run prog)) def
-
 -- | Generate native code with C++ FFI
-pretty :: Calc -> IO ()
-pretty = TIO.putStrLn . ppllvm . compile
+pretty :: [Calc] -> IO ()
+pretty ast = TIO.putStrLn . ppllvm $ compile ast
 
 -- | Print compiled LLVM IR to stdout
-native :: Calc -> IO String
+native :: [Calc] -> IO String
 native ast = toLLVM $ compile ast
+
+-- | Compiler Error
+(???) :: String -> String -> a
+(???) msg debug = error $ "Compiler Error\n" ++ msg ++ "\n" ++ debug
