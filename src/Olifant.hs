@@ -229,7 +229,7 @@ step (Plus a b) = do
 -- | Find the operand for the variable from the symbol table and return it.
 step (Var var) = return $ local var
 
-step (Lam fn _arg body) = do
+step (Lam fn arg body) = do
     -- Make a new block for this function and add to `GenState`
     modify $ \s -> s {blocks = blocks s ++ [blockState fn]}
 
@@ -238,8 +238,8 @@ step (Lam fn _arg body) = do
     term' <- terminator result
     instructions <- stack <$> current
 
-    -- define ::  Type -> Text -> [(Type, Name)] -> [BasicBlock] -> Codegen ()
-    define number fn [(number, "x")] [basicBlock instructions term']
+    -- define :: Type -> Text -> [(Type, Name)] -> [BasicBlock] -> Codegen ()
+    define number fn [(number, Name $ toS arg)] [basicBlock instructions term']
 
     return $ local fn
 
