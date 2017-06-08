@@ -4,6 +4,22 @@
 
 ** LLVM Types
 
+*** [[file:~/Projects/llvm-hs/llvm-hs-pure/src/LLVM/AST/Type.hs::data%20Type][Type]]
+
+http://llvm.org/docs/LangRef.html#type-system
+
+#+BEGIN_SRC haskell
+  data Type
+    = VoidType
+    | IntegerType { typeBits :: Word32 }
+    | PointerType { pointerReferent :: Type, pointerAddrSpace :: AddrSpace }
+    | FloatingPointType { floatingPointType ::
+    | FunctionType { resultType :: Type, argumentTypes :: [Type], isVarArg :: Bool }
+    | StructureType { isPacked :: Bool, elementTypes :: [Type] }
+    | ArrayType { nArrayElements :: Word64, elementType :: Type }
+    ...
+#+END_SRC
+
 *** [[file:~/Projects/llvm-hs/llvm-hs-pure/src/LLVM/AST/Name.hs::data%20Name][Name]]
 
 Good old variable references
