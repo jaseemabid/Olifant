@@ -37,6 +37,12 @@ data Calc
 number :: Type
 number = IntegerType 64
 
+-- | Simplest of the lambda function
+function :: Type
+function = FunctionType {resultType = number
+                        , argumentTypes = [number]
+                        , isVarArg = False}
+
 -- | Pointer to the `number` type
 pointer :: Type
 pointer = PointerType number $ AddrSpace 0
@@ -250,7 +256,7 @@ step (Lam fn arg body) = do
 compile :: [Calc] -> Module
 compile prog = mod $ execState (runCodegen (run prog)) genState
   where
-    -- | Step through the AST and throw away the results
+    -- | Step through the AST and _throw_ away the results
     run :: [Calc] -> Codegen ()
     run = mapM_ step
 
