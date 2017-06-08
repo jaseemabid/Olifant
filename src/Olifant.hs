@@ -13,6 +13,8 @@ import           Protolude hiding (Type, mod, local)
 
 import           LLVM.AST
 import           LLVM.AST.AddrSpace
+import           LLVM.AST.Attribute
+import           LLVM.AST.CallingConvention
 import           LLVM.AST.Constant
 import           LLVM.AST.Global
 import           LLVM.Context (withContext)
@@ -27,7 +29,7 @@ data Calc
     | Plus Calc Calc
     -- ^ Classic lambda calculus
     | Var Text
-    | App Calc Calc
+    | App Text Calc
     | Lam Text Text Calc
     deriving (Read, Show)
 
@@ -49,7 +51,7 @@ pointer = PointerType number $ AddrSpace 0
 
 -- * State types
 
--- | Symbol tables maps a string to a LLVM operand
+-- | Symbol tables maps a name to a LLVM operand.
 type SymbolTable = [(Text, Operand)]
 
 -- | State of the complete program
@@ -70,7 +72,7 @@ data GenState = GenState
 --
 -- As of now, a function contains just one block.
 data BlockState = BlockState
-  { name :: Text                   -- Name of the block
+  { name :: Text                     -- Name of the block
   , stack :: [Named Instruction]     -- List of operations
   , term :: Maybe (Named Terminator) -- Block terminator
   } deriving (Show)
@@ -183,6 +185,16 @@ alloca :: Type -> Maybe Text -> Codegen Operand
 alloca ty Nothing = unnamed $ Alloca ty Nothing 0 []
 alloca ty (Just ref) = named ref $ Alloca ty Nothing 0 []
 
+-- | Call a function `fn` with `arg`
+call :: Operand -> Operand -> Codegen Operand
+call fn arg = unnamed $ Call Nothing C [] fn' args [] []
+  where
+    fn' :: CallableOperand
+    fn' = (Right $ fn)
+
+    args :: [(Operand, [ParameterAttribute])]
+    args = [(arg, [])]
+
 -- | Add 2 integers
 add :: Operand -> Operand -> Instruction
 add lhs rhs = LLVM.AST.Add False False lhs rhs []
@@ -199,9 +211,19 @@ terminator result = return $ Do $ Ret (Just result) []
 cons :: Integer -> Operand
 cons n = ConstantOperand $ Int 64 n
 
+-- * References
+
 -- | Get a reference operand from a string
 local :: Text -> Operand
 local v = LocalReference number $ Name $ toS v
+
+global ::  Name -> Constant
+global = GlobalReference number
+
+
+-- TODO: Learn what GlobalReference does
+externf :: Name -> Operand
+externf = ConstantOperand . GlobalReference number
 
 -- | Define a function
 define ::  Type -> Text -> [(Type, Name)] -> [BasicBlock] -> Codegen ()
@@ -233,6 +255,8 @@ step (Plus a b) = do
     unnamed $ add lhs rhs
 
 -- | Find the operand for the variable from the symbol table and return it.
+--
+--
 step (Var var) = return $ local var
 
 step (Lam fn arg body) = do
@@ -248,6 +272,14 @@ step (Lam fn arg body) = do
     define number fn [(number, Name $ toS arg)] [basicBlock instructions term']
 
     return $ local fn
+
+-- Apply the function
+--
+-- This is a bit too primitive. There are no type checks, or at least ensuring
+-- that the function is even defined.
+step (App fn val) = do
+    arg <- step val
+    call (externf (Name $ toS fn)) arg
 
 ---
 --- Code generation
