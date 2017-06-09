@@ -40,10 +40,10 @@ number :: Type
 number = IntegerType 64
 
 -- | Simplest of the lambda function
-function :: Type
-function = FunctionType {resultType = number
-                        , argumentTypes = [number]
-                        , isVarArg = False}
+lambda :: Type
+lambda = FunctionType { resultType = number
+                      , argumentTypes = [number]
+                      , isVarArg = False}
 
 -- | Pointer to the `number` type
 pointer :: Type
@@ -105,6 +105,10 @@ addDefn g = do
     let defs = moduleDefinitions modl ++ [GlobalDefinition g]
     let mod' = modl {moduleDefinitions = defs}
     put $ st {mod = mod'}
+
+-- Add a symbol to the symbol table
+addSym :: Text -> Operand -> Codegen ()
+addSym name op = modify $ \s -> s {symtab = [(name, op)] ++ symtab s}
 
 -- * Handle `BlockState`
 
@@ -220,20 +224,22 @@ local v = LocalReference number $ Name $ toS v
 global ::  Name -> Constant
 global = GlobalReference number
 
-
--- TODO: Learn what GlobalReference does
+-- Make an operand out of a global function
 externf :: Name -> Operand
-externf = ConstantOperand . GlobalReference number
+externf = ConstantOperand . GlobalReference lambda
 
 -- | Define a function
 define ::  Type -> Text -> [(Type, Name)] -> [BasicBlock] -> Codegen ()
-define retty label argtys body = addDefn $
-  functionDefaults {
-    name        = Name $ toS label
-  , parameters  = ([Parameter ty nm [] | (ty, nm) <- argtys], False)
-  , returnType  = retty
-  , basicBlocks = body
-  }
+define retty label argtys body = do
+    addDefn $
+      functionDefaults {
+        name        = Name $ toS label
+        , parameters  = ([Parameter ty nm [] | (ty, nm) <- argtys], False)
+        , returnType  = retty
+        , basicBlocks = body
+      }
+
+    addSym label $ externf (Name $ toS label)
 
 -- * AST Traversal
 
