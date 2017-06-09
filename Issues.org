@@ -3,23 +3,4 @@
 * OP load, store and alloca
   When do I need them? What are things LLVM local variables can't do?
 
-* Compile named local variables without alloc/store and load
-  I'm not sure the interface exposed by step is a good enough to do this.
-
 * Why do I even need a symbol table?
-
-* Use a literal type and value type
-
-#+BEGIN_SRC haskell
-
--- | Literal values in the language
-data Lit = LInt Int | LBool Bool
-    deriving (Show, Eq, Ord)
-
-#+END_SRC
-
-* Simplify things for a v1
-
-1. Only named functions for now
-2. Only global functions, no global variables
-3. Vars only from params

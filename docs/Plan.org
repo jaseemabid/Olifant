@@ -1,0 +1,18 @@
+* What I would like to do with Olifant and the things I learned [0/8]
+
+- [ ] Compile a series of expressions, where last one is main
+- [ ] Define single argument lambdas
+- [ ] Call lambda
+- [ ] Define global variables
+- [ ] Add numeric and boolean types
+
+  Experiment with a literal type and see how that goes
+
+  #+BEGIN_SRC haskell
+  -- | Literal values in the language
+  data Lit = LInt Int | LBool Bool
+        deriving (Show, Eq, Ord)
+  #+END_SRC
+
+- [ ] Add a proper symbol table
+- [ ] Add error checks and validation

@@ -1,0 +1,12 @@
+* Brain dump
+
+** Why do I even need symbol tables?
+
+One of the dumb questions that went through my head a few days ago was the whole
+point of the symbol table. These are the simple reasons I need one.
+
+1. Disambiguate b/w values and functions. Even though they are the same at the
+   language level; they differ quite lot when the code is generated.
+2. Type checks
+3. Detect undefined variables
+4. Detect free variables and lambda lift them
