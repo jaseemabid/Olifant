@@ -1,6 +1,1 @@
 #+TITLE: Issues
-
-* OP load, store and alloca
-  When do I need them? What are things LLVM local variables can't do?
-
-* Why do I even need a symbol table?
