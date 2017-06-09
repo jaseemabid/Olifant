@@ -16,6 +16,10 @@ cabal-version:       >=1.10
 library
   hs-source-dirs:      src
   exposed-modules:     Olifant
+                     , Olifant.Calculus
+                     , Olifant.Compiler
+                     , Olifant.Core
+                     , Olifant.Gen
   build-depends:       base >= 4.7 && < 5
                      , bytestring
                      , llvm-hs
