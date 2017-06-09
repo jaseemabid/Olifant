@@ -1,4 +1,4 @@
-* What I would like to do with Olifant and the things I learned [0/8]
+* What I would like to do with Olifant and the things I learned [0/9]
 
 - [ ] Compile a series of expressions, where last one is main
 - [ ] Define single argument lambdas
@@ -16,3 +16,12 @@
 
 - [ ] Add a proper symbol table
 - [ ] Add error checks and validation
+- [ ] Write a frontend
+- [ ] Explore the options with a second lower level IR
+
+  A lower level IR seems necessary at this point.
+
+  1. Non recursive grammar.
+  2. SSA form.
+  3. Explicitly named functions at top level
+  4.
