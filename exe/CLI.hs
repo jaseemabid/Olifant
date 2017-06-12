@@ -6,13 +6,10 @@ Description : The CLI interface to Olifant
 
 module Main where
 
-import Olifant
-
 import Prelude
 import System.Environment (getArgs)
 import System.FilePath (replaceExtension)
 import System.IO
-
 
 usage :: IO ()
 usage = putStrLn "Usage: olifant [-vh] [file] "
@@ -40,4 +37,4 @@ main = getArgs >>= parseArgs
 
 -- | Compile a string and return result
 exec :: String -> IO String
-exec str = readIO str >>= native
+exec _str = error "notImplemented" -- readIO str >>= native
