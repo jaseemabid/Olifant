@@ -207,10 +207,11 @@ cons n = ConstantOperand $ Int 64 n
 local :: Text -> Operand
 local v = LocalReference number $ Name $ toS v
 
+-- |
 global ::  Name -> Constant
 global = GlobalReference number
 
--- Make an operand out of a global function
+-- | Make an operand out of a global function
 externf :: Name -> Operand
 externf = ConstantOperand . GlobalReference lambda
 
@@ -270,7 +271,26 @@ step (App (Lam fn _ _) val) = do
     arg' <- step val
     call (externf (Name $ toS $ rname fn)) arg'
 
-step (App _ _) = notImplemented
+-- Add a constant global variable
+--
+-- Lambda assigning an expression with free variables make no sense, handle the
+-- case somewhere before code generation.
+step (Let (Ref name' _t1) (Lit (LNumber n _t2))) = do
+    addDefn $ global'
+    return $ ConstantOperand c
+
+  where
+    c :: Constant
+    c = Int 64 n
+
+    global' :: Global
+    global' = globalVariableDefaults
+      { name = Name $ toS name'
+      , initializer = Just c
+      , type' = number
+      }
+
+step something = error $ "Unknown pattern for step: " <> show something
 
 ---
 --- Code generation

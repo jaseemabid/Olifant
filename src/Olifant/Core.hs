@@ -14,12 +14,13 @@ import Protolude
 --
 
 data Ref a = Ref {rname :: Text, tipe :: a}
-    deriving (Functor, Foldable, Traversable)
+    deriving (Show, Functor, Foldable, Traversable)
 
 data Literal a = LNumber Integer a
-    deriving (Functor, Foldable, Traversable)
+    deriving (Show, Functor, Foldable, Traversable)
 
 data Tipe = TInt | Tipe :~> Tipe
+    deriving (Show)
 
 data Expr a
     = Var (Ref a)
@@ -32,11 +33,12 @@ data Expr a
       }
     -- Let binds a global variable for now; fix the semantics
     | Let (Ref a) (Expr a)
-  deriving (Functor, Foldable, Traversable)
+    deriving (Show, Functor, Foldable, Traversable)
 
 type CoreUT = Expr ()
 
 type Core = Expr Tipe
+
 
 -- * Aliases
 
