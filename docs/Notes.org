@@ -56,3 +56,16 @@ hello.ll:13:11: error: global variable reference must have pointer type
   ret i32 @x
           ^
 #+END_EXAMPLE
+
+** The big reading list [1/2]
+
+- [ ] [[http://www.aosabook.org/en/ghc.html][The Architecture of Open Source Applications | GHC]]
+
+  Quick introduction to the various stages of compilation in the GHC compiler.
+
+- [X] The AST Typing problem [2/2]
+
+  About designing a well typed IR
+
+  - [X] [[http://lambda-the-ultimate.org/node/4170][The AST Typing Problem | Lambda the Ultimate]]
+  - [X] [[http://blog.ezyang.com/2013/05/the-ast-typing-problem/][The AST Typing Problem | Edward Z. Yang]]
