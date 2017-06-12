@@ -304,19 +304,19 @@ compile prog = mod $ execState (runCodegen (run prog)) genState
     run = mapM_ step
 
 -- | Generate native code with C++ FFI
-toLLVM :: Module -> IO P.String
+toLLVM :: Module -> IO Text
 toLLVM modl =
     withContext $ \context -> do
         errOrLLVM <-
             runExceptT $ withModuleFromAST context modl moduleLLVMAssembly
         case errOrLLVM of
-            Left err -> return $ "Error: " ++ err
-            Right llvm -> return llvm
+            Left err -> return $ toS $ "Error: " ++ err
+            Right llvm -> return $ toS llvm
 
 -- | Generate native code with C++ FFI
-pretty :: [Core] -> IO ()
-pretty ast = putStrLn . ppllvm $ compile ast
+pretty :: [Core] -> Text
+pretty ast = toS . ppllvm $ compile ast
 
 -- | Print compiled LLVM IR to stdout
-native :: [Core] -> IO P.String
+native :: [Core] -> IO Text
 native ast = toLLVM $ compile ast
