@@ -4,8 +4,6 @@
 
 module Olifant.Gen where
 
-import           Olifant.Calculus
-import           Olifant.Compiler
 import           Olifant.Core
 
 import qualified Prelude as P
@@ -96,7 +94,7 @@ addDefn g = do
 
 -- Add a symbol to the symbol table
 addSym :: Text -> Operand -> Codegen ()
-addSym name op = modify $ \s -> s {symtab = [(name, op)] ++ symtab s}
+addSym symbol op = modify $ \s -> s {symtab = (symbol, op): symtab s}
 
 -- * Handle `BlockState`
 
@@ -179,13 +177,13 @@ alloca ty (Just ref) = named ref $ Alloca ty Nothing 0 []
 
 -- | Call a function `fn` with `arg`
 call :: Operand -> Operand -> Codegen Operand
-call fn arg = unnamed $ Call Nothing C [] fn' args [] []
+call fn arg' = unnamed $ Call Nothing C [] fn' args' [] []
   where
     fn' :: CallableOperand
-    fn' = (Right $ fn)
+    fn' = Right fn
 
-    args :: [(Operand, [ParameterAttribute])]
-    args = [(arg, [])]
+    args' :: [(Operand, [ParameterAttribute])]
+    args' = [(arg', [])]
 
 -- | Add 2 integers
 add :: Operand -> Operand -> Instruction
@@ -218,13 +216,13 @@ externf = ConstantOperand . GlobalReference lambda
 
 -- | Define a function
 define ::  Type -> Text -> [(Type, Name)] -> [BasicBlock] -> Codegen ()
-define retty label argtys body = do
+define retty label argtys body' = do
     addDefn $
       functionDefaults {
         name        = Name $ toS label
         , parameters  = ([Parameter ty nm [] | (ty, nm) <- argtys], False)
         , returnType  = retty
-        , basicBlocks = body
+        , basicBlocks = body'
       }
 
     addSym label $ externf (Name $ toS label)
@@ -235,55 +233,54 @@ define retty label argtys body = do
 --
 -- Step should return an operand, which is the LHS of the operand it just dealt
 -- with. Step is free to push instructions to the current block.
-step :: Calc -> Codegen Operand
-
--- | Make a constant operand out of the constant and return it.
-step (Number n) = return $ cons n
-
--- | Get the reference to the operands on LHS and RH'S. Push to stack the
--- instruction to compute the new value and return the operand that refers to
--- the new value.
-step (Plus a b) = do
-    lhs <- step a
-    rhs <- step b
-    unnamed $ add lhs rhs
+step :: Core -> Codegen Operand
 
 -- | Find the operand for the variable from the symbol table and return it.
 --
---
-step (Var var) = return $ local var
+step (Var (Ref n _type)) = return $ local n
 
-step (Lam fn arg body) = do
+-- | Make a constant operand out of the constant and return it.
+step (Lit (LNumber n _type)) = return $ cons n
+
+step (Lam fn arg' body') = do
     -- Make a new block for this function and add to `GenState`
-    modify $ \s -> s {blocks = blocks s ++ [blockState fn]}
+    modify $ \s -> s {blocks = blocks s ++ [blockState name']}
 
     -- [TODO] - Should do the closure business
-    result <- step body
+    result <- step body'
     term' <- terminator result
     instructions <- stack <$> current
 
     -- define :: Type -> Text -> [(Type, Name)] -> [BasicBlock] -> Codegen ()
-    define number fn [(number, Name $ toS arg)] [basicBlock instructions term']
+    define number name' params' [basicBlock instructions term']
 
-    return $ local fn
+    return $ local name'
+  where
+      name' :: Text
+      name' = rname fn
+
+      params' :: [(Type, Name)]
+      params' = [(number, Name (toS $ rname arg'))]
 
 -- Apply the function
 --
 -- This is a bit too primitive. There are no type checks, or at least ensuring
 -- that the function is even defined.
-step (App fn val) = do
-    arg <- step val
-    call (externf (Name $ toS fn)) arg
+step (App (Lam fn _ _) val) = do
+    arg' <- step val
+    call (externf (Name $ toS $ rname fn)) arg'
+
+step (App _ _) = notImplemented
 
 ---
 --- Code generation
 ---
 
-compile :: [Calc] -> Module
+compile :: [Core] -> Module
 compile prog = mod $ execState (runCodegen (run prog)) genState
   where
     -- | Step through the AST and _throw_ away the results
-    run :: [Calc] -> Codegen ()
+    run :: [Core] -> Codegen ()
     run = mapM_ step
 
 -- | Generate native code with C++ FFI
@@ -297,9 +294,9 @@ toLLVM modl =
             Right llvm -> return llvm
 
 -- | Generate native code with C++ FFI
-pretty :: [Calc] -> IO ()
+pretty :: [Core] -> IO ()
 pretty ast = putStrLn . ppllvm $ compile ast
 
 -- | Print compiled LLVM IR to stdout
-native :: [Calc] -> IO P.String
+native :: [Core] -> IO P.String
 native ast = toLLVM $ compile ast
