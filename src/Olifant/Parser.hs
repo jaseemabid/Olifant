@@ -42,7 +42,7 @@ bool = Bool . (== "#t") <$> (try (string "#t") <|> string "#f")
 --
 lambda :: Parsec Text st Calculus
 lambda = do
-    _ <- choice $ map char ['\\', '/', '^', '|']
+    _ <- choice $ map char ['\\', '/', '^', '|', 'λ']
     arg <-  toS <$> many1 letter
     _ <- char '.'
     body <- calculus
