@@ -13,4 +13,4 @@ data Calculus =
   | App Calculus Calculus
   | Lam Text Calculus
   | Let Text Calculus
-  deriving (Show)
+  deriving (Eq, Show)

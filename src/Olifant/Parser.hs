@@ -3,7 +3,7 @@
 -- Module      :  Olifant.Parser
 --
 -----------------------------------------------------------------------------
-module Olifant.Parser (parser, read) where
+module Olifant.Parser where
 
 import Data.Text (strip)
 import Olifant.Calculus
@@ -45,19 +45,27 @@ lambda = do
     _ <- choice $ map char ['\\', '/', '^', '|']
     arg <-  toS <$> many1 letter
     _ <- char '.'
-    body <- parseExpr
+    body <- calculus
     return $ Lam arg body
 
+application :: Parsec Text st Calculus
+application = try $ do
+    a <- calculus
+    _ <- many1 space
+    b <- calculus
+    return $ App a b
+
 -- | The lambda calculus grammar
-parseExpr :: Parsec Text st Calculus
-parseExpr =
-  bool
+calculus :: Parsec Text st Calculus
+calculus =
+      bool
   <|> number
   <|> symbol
   <|> lambda
+  <|> application
 
 parser :: Parsec Text st [Calculus]
-parser = parseExpr `sepBy` optional spaces
+parser = calculus `sepBy` newline
 
 -- | Parse source and return AST
 --

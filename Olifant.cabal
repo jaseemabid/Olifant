@@ -50,12 +50,16 @@ test-suite Olifant-test
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test
   main-is:             Test.hs
+  other-modules:       Test
+                     , Test.Gen
+                     , Test.Parser
   build-depends:       Olifant
                      , base
                      , bytestring
                      , llvm-hs
                      , llvm-hs-pretty
                      , llvm-hs-pure
+                     , parsec
                      , protolude
                      , tasty
                      , tasty-hunit
