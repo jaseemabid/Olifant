@@ -20,6 +20,7 @@ library
                      , Olifant.Compiler
                      , Olifant.Core
                      , Olifant.Gen
+                     , Olifant.Parser
   build-depends:       base >= 4.7 && < 5
                      , bytestring
                      , llvm-hs
