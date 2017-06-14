@@ -26,6 +26,7 @@ library
                      , llvm-hs-pretty
                      , llvm-hs-pure
                      , mtl
+                     , parsec
                      , protolude
                      , tasty
                      , tasty-hunit
