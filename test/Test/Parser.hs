@@ -29,8 +29,20 @@ lam = testCase "λ definitions" $ do
     -- Identity function
     expect "/x.x" (Lam "x" (Var "x"))
 
-    -- K Combinator
+    -- K combinator
     expect "/x./y.x" (Lam "x" (Lam "y" (Var "x")))
+
+    -- S combinator
+    expect "/x./y./z.x z y z" (Lam "x"
+                                (Lam "y"
+                                 (Lam "z"
+                                   (App (Var "x")
+                                    (App (Var "z") (App (Var "y") (Var "z")))))))
+
+    -- B combinator
+    expect "/x./y./z.x y z" (Lam "x"
+                              (Lam "y"
+                                (Lam "z" (App (Var "x") (App (Var "y") (Var "z"))))))
 
 application :: TestTree
 application = testCase "λ application" $ do
