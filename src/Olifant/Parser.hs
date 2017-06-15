@@ -5,11 +5,14 @@
 -----------------------------------------------------------------------------
 module Olifant.Parser where
 
-import Data.Text (strip)
 import Olifant.Calculus
-import Prelude hiding (read)
-import qualified Prelude as P
+
 import Protolude (Text, toS)
+import qualified Prelude as P
+import Prelude hiding (read)
+
+import Data.Text (strip)
+import Data.Char (isAlpha)
 import Text.Parsec
 
 -- ParserT monad transformer and Parser type
@@ -40,8 +43,8 @@ bool = Bool . (== "#t") <$> (try (string "#t") <|> string "#f")
 -- | Parse expressions of the form @\x.x@
 lambda :: Parsec Text st Calculus
 lambda = do
-    _ <- choice $ map char ['\\', '/', '^', '|', 'λ']
-    arg <- toS <$> many1 letter
+    _ <- choice $ map char ['\\', '/', 'λ']
+    arg <- toS <$> many1 (satisfy $ \c -> isAlpha c && (c /= 'λ'))
     _ <- char '.'
     body <- calculus
     return $ Lam arg body
