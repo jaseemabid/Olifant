@@ -2,10 +2,11 @@
 
 module Test.Gen where
 
-import LLVM.Pretty (ppllvm)
+import Protolude
+
 import Olifant
 import Olifant.Core
-import Protolude
+
 import Test.Tasty
 import Test.Tasty.HUnit
 

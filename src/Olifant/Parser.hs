@@ -8,12 +8,11 @@ module Olifant.Parser where
 import Data.Text (strip)
 import Olifant.Calculus
 import Prelude hiding (read)
+import qualified Prelude as P
 import Protolude (Text, toS)
 import Text.Parsec
-import qualified Prelude as P
 
 -- ParserT monad transformer and Parser type
-
 -- @ParsecT s u m ui@ is a parser with stream type s, user state type u,
 -- underlying monad m and return type a. Parsec is strict in the user state.
 --
@@ -38,34 +37,39 @@ symbol = Var . toS <$> many1 letter
 bool :: Parsec Text st Calculus
 bool = Bool . (== "#t") <$> (try (string "#t") <|> string "#f")
 
--- | Parse expressions of the form @\x.1@
---
+-- | Parse expressions of the form @\x.x@
 lambda :: Parsec Text st Calculus
 lambda = do
     _ <- choice $ map char ['\\', '/', '^', '|', 'λ']
-    arg <-  toS <$> many1 letter
+    arg <- toS <$> many1 letter
     _ <- char '.'
     body <- calculus
     return $ Lam arg body
 
-application :: Parsec Text st Calculus
-application = try $ do
-    a <- calculus
-    _ <- many1 space
-    b <- calculus
-    return $ App a b
+-- | A term, which is anything except lambda application
+term :: Parsec Text st Calculus
+term = lambda <|> symbol <|> bool <|> number
 
 -- | The lambda calculus grammar
 calculus :: Parsec Text st Calculus
-calculus =
-      bool
-  <|> number
-  <|> symbol
-  <|> lambda
-  <|> application
+calculus = do
+    a <- term
+    -- Spaces mean zero or more; need at least one here
+    ahead <- optionMaybe (many1 space)
+    case ahead of
+        Nothing -> return a
+        Just _ -> do
+            b <- try calculus
+            return $ App a b
 
 parser :: Parsec Text st [Calculus]
 parser = calculus `sepBy` newline
+
+-- * Custom parser combinators
+
+-- | Squeeze a parser between something else and throw away the padding
+squeeze :: Stream s m t => ParsecT s u m close -> ParsecT s u m a -> ParsecT s u m a
+squeeze e = between e e
 
 -- | Parse source and return AST
 --
