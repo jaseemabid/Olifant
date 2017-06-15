@@ -13,13 +13,19 @@ import Protolude
 -- // Intentionally presented without comments //
 --
 
-data Ref a = Ref {rname :: Text, tipe :: a}
+-- * Known issues
+--
+-- 1. Ref a -> a
+-- 2. Function types is redundant with arg types and ret type
+-- 3. Non empty [] for TArrow
+
+data Ref a = Ref {rname :: Text, tipe :: Tipe}
     deriving (Show, Functor, Foldable, Traversable)
 
-data Literal a = LNumber Integer a
+data Literal a = LNumber Integer | LBool Bool
     deriving (Show, Functor, Foldable, Traversable)
 
-data Tipe = TInt | Tipe :~> Tipe
+data Tipe = TInt | TBool | TArrow [Tipe]
     deriving (Show)
 
 data Expr a
@@ -27,9 +33,9 @@ data Expr a
     | Lit (Literal a)
     | App (Expr a) (Expr a)
     | Lam
-      { name :: (Ref a)
-      , arg :: (Ref a)
-      , body :: (Expr a)
+      { name :: Ref a
+      , arg :: Ref a
+      , body :: Expr a
       }
     -- Let binds a global variable for now; fix the semantics
     | Let (Ref a) (Expr a)
@@ -38,7 +44,6 @@ data Expr a
 type CoreUT = Expr ()
 
 type Core = Expr Tipe
-
 
 -- * Aliases
 

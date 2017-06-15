@@ -14,24 +14,28 @@ main :: IO ()
 main = defaultMain tests
 
 tests :: TestTree
-tests = testGroup "LLVM Code generator" [assign, fn]
+tests = testGroup "LLVM Code generator" [assign, fn, constfn]
 
 assign :: TestTree
-assign = testCase "Global variable assignment" $ pretty [progn] @?= toS gen
+assign = testCase "Global variable assignment" $ do
+  pretty [Let x num] @?= toS genInt
+  pretty [Let x yes] @?= toS genBool
 
   where
-    -- | Sample program `x = 1`
-    progn :: Core
-    progn = Let x one'
-      where
-        x :: Ref Tipe
-        x = Ref "x" TInt
+    x :: Ref Tipe
+    x = Ref "x" TInt
 
-        one' :: Core
-        one' = Lit (LNumber 1 TInt)
+    num :: Core
+    num = Lit (LNumber 42)
 
-    gen :: Text
-    gen = "; ModuleID = 'calc'\n\n@x = global i64 1"
+    yes :: Core
+    yes = Lit (LBool True)
+
+    genInt :: Text
+    genInt = "; ModuleID = 'calc'\n\n@x = global i64 42"
+
+    genBool :: Text
+    genBool = "; ModuleID = 'calc'\n\n@x = global i1 1"
 
 fn :: TestTree
 fn = testCase "Simple identity function" $ pretty [progn] @?= toS gen
@@ -42,12 +46,12 @@ fn = testCase "Simple identity function" $ pretty [progn] @?= toS gen
     progn = Lam id' arg' body'
       where
         id' :: Ref Tipe
-        id' = Ref "id" (TInt :~> TInt)
+        id' = Ref "id" (TArrow [TInt, TInt])
 
         arg' :: Ref Tipe
         arg' = Ref "x" TInt
 
-        body' :: Expr Tipe
+        body' :: Core
         body' = Var $ Ref "x" TInt
 
     gen :: Text
@@ -55,3 +59,26 @@ fn = testCase "Simple identity function" $ pretty [progn] @?= toS gen
           \define external ccc i64 @id(i64 %x){\n\
           \entry:\n\
           \  ret i64 %x\n}"
+constfn :: TestTree
+constfn = testCase "Const function returning false" $
+  pretty [progn] @?= toS gen
+
+  where
+    -- | Sample program `x -> x`
+    progn :: Core
+    progn = Lam sad arg' body'
+
+    sad :: Ref Tipe
+    sad = Ref "sad" (TArrow [TInt, TBool])
+
+    arg' :: Ref Tipe
+    arg' = Ref "y" TInt
+
+    body' :: Core
+    body' = Lit (LBool False)
+
+    gen :: Text
+    gen = "; ModuleID = 'calc'\n\n\
+          \define external ccc i1 @sad(i64 %y){\n\
+          \entry:\n\
+          \  ret i1 0\n}"

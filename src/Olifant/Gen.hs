@@ -14,26 +14,31 @@ import           LLVM.AST.AddrSpace
 import           LLVM.AST.Attribute
 import           LLVM.AST.CallingConvention
 import           LLVM.AST.Constant
+import           LLVM.AST.Type
 import           LLVM.AST.Global
 import           LLVM.Context (withContext)
 import           LLVM.Module (moduleLLVMAssembly, withModuleFromAST)
 import           LLVM.Pretty (ppllvm)
 
--- * Types
+-- | Map from Olifant types to LLVM types
+native :: Tipe -> Type
+native TInt = i64
+native TBool = i1
+native (TArrow types) = FunctionType {
+  argumentTypes = map native $ P.init types
+  , resultType = native $ P.last types
+  , isVarArg = False
+  }
 
--- | 64 bit integer
-number :: Type
-number = IntegerType 64
-
--- | Simplest of the lambda function
-lambda :: Type
-lambda = FunctionType { resultType = number
-                      , argumentTypes = [number]
-                      , isVarArg = False}
-
--- | Pointer to the `number` type
-pointer :: Type
-pointer = PointerType number $ AddrSpace 0
+-- | Get pointer to a local variable
+--
+-- @i64 f -> i64* f@
+pointer :: Operand -> Operand
+pointer (LocalReference t name') = LocalReference p name'
+  where
+    p :: Type
+    p = PointerType t $ AddrSpace 0
+pointer x = error $ "Cannot make a pointer for " <> show x
 
 -- * State types
 
@@ -44,12 +49,11 @@ type SymbolTable = [(Text, Operand)]
 data GenState = GenState
     { blocks :: [BlockState] -- Blocks, ordered and named
     , symtab :: SymbolTable  -- Symbol table
-    , mod :: Module          -- The LLVM Module
     , counter :: Integer
+    , mod :: Module          -- The LLVM Module
     } deriving (Show)
 
 -- | State of a single block
---
 --
 -- A function definition contains a list of basic blocks, forming the Control
 -- Flow Graph. Each basic block may optionally start with a label, contains a
@@ -126,7 +130,7 @@ unnamed :: Instruction -> Codegen Operand
 unnamed ins = do
     new <- fresh
     push $ new := ins
-    return $ LocalReference number new
+    return $ LocalReference i64 new
     -- Make a fresh unnamed variable; %4 or %5
   where
     fresh :: Codegen Name
@@ -142,7 +146,7 @@ unnamed ins = do
 --  - Returns @%foo@
 --
 named :: Text -> Instruction -> Codegen Operand
-named str ins = push (op := ins) >> return (LocalReference number op)
+named str ins = push (op := ins) >> return (LocalReference i64 op)
   where
     op :: Name
     op = Name $ toS str
@@ -152,23 +156,12 @@ named str ins = push (op := ins) >> return (LocalReference number op)
 -- | Variable assignment
 --
 -- Converts expression of the form @%1 = 2@ to @* %1 = 2@
---
--- [TODO]: Having to use `error` here is shitty
 store :: Operand -> Operand -> Codegen ()
-store (LocalReference _type n) val =
-    push $ Do $ Store False ptr val Nothing 0 []
-  where
-    ptr = LocalReference pointer n
-store _ _ = error "Cannot store anything other than local reference"
+store var val = push $ Do $ Store False (pointer var) val Nothing 0 []
 
 -- | Fetch a variable from memory
---
--- [TODO] - Enforce operand is a pointer type. This is shitty types :/
 load :: Operand -> Codegen Operand
-load (LocalReference _type n) = unnamed $ Load False ptr Nothing 0 []
-  where
-    ptr = LocalReference pointer n
-load _ = error "Cannot load anything other than local pointer reference"
+load var = unnamed $ Load False (pointer var) Nothing 0 []
 
 -- | Make an `alloca` instruction
 alloca :: Type -> Maybe Text -> Codegen Operand
@@ -197,36 +190,46 @@ basicBlock = BasicBlock (Name "entry")
 terminator :: Operand -> Codegen (Named Terminator)
 terminator result = return $ Do $ Ret (Just result) []
 
--- | Get a constant operand from number
-cons :: Integer -> Operand
-cons n = ConstantOperand $ Int 64 n
-
 -- * References
 
 -- | Get a reference operand from a string
 local :: Text -> Operand
-local v = LocalReference number $ Name $ toS v
+local v = LocalReference i64 $ Name $ toS v
 
 -- |
 global ::  Name -> Constant
-global = GlobalReference number
+global = GlobalReference i64
 
 -- | Make an operand out of a global function
-externf :: Name -> Operand
-externf = ConstantOperand . GlobalReference lambda
+--
+--   %f -> @f
+--   /nati
+--
+externf :: Name -> Tipe -> Operand
+externf name tipe = ConstantOperand $ GlobalReference (native tipe) name
 
 -- | Define a function
-define ::  Type -> Text -> [(Type, Name)] -> [BasicBlock] -> Codegen ()
-define retty label argtys body' = do
+define :: Ref a -> Ref a -> [BasicBlock] -> Codegen ()
+define (Ref n t) arg body' = do
     addDefn $
       functionDefaults {
-        name        = Name $ toS label
-        , parameters  = ([Parameter ty nm [] | (ty, nm) <- argtys], False)
-        , returnType  = retty
+        name          = Name $ toS n
+        , parameters  = ([Parameter ty nm [] | (ty, nm) <- params], False)
+        , returnType  = ret t
         , basicBlocks = body'
       }
 
-    addSym label $ externf (Name $ toS label)
+    addSym n $ externf (Name $ toS n) t
+  where
+    -- | `Tipe` is the function type, not just return type
+    ret :: Tipe -> Type
+    ret (TArrow ts) = native $ P.last ts
+    ret t = native t
+
+    params :: [(Type, Name)]
+    params = case t of
+      (TArrow ts) -> [(native t, Name $ toS $ rname arg) | t <- P.init ts]
+      _ -> []
 
 -- * AST Traversal
 
@@ -241,56 +244,55 @@ step :: Core -> Codegen Operand
 step (Var (Ref n _type)) = return $ local n
 
 -- | Make a constant operand out of the constant and return it.
-step (Lit (LNumber n _type)) = return $ cons n
+step (Lit (LNumber n)) = return $ ConstantOperand $ Int 64 n
+step (Lit (LBool True)) = return $ ConstantOperand $ Int 1 1
+step (Lit (LBool False)) = return $ ConstantOperand $ Int 1 0
 
-step (Lam fn arg' body') = do
+-- | Top level lambda, lifted before it gets here
+step (Lam ref@(Ref n _t) arg body') = do
     -- Make a new block for this function and add to `GenState`
-    modify $ \s -> s {blocks = blocks s ++ [blockState name']}
+    modify $ \s -> s {blocks = blocks s ++ [blockState n]}
 
     -- [TODO] - Should do the closure business
     result <- step body'
     term' <- terminator result
     instructions <- stack <$> current
 
-    -- define :: Type -> Text -> [(Type, Name)] -> [BasicBlock] -> Codegen ()
-    define number name' params' [basicBlock instructions term']
+    define ref arg [basicBlock instructions term']
 
-    return $ local name'
-  where
-      name' :: Text
-      name' = rname fn
-
-      params' :: [(Type, Name)]
-      params' = [(number, Name (toS $ rname arg'))]
+    return $ local n
 
 -- Apply the function
 --
 -- This is a bit too primitive. There are no type checks, or at least ensuring
 -- that the function is even defined.
-step (App (Lam fn _ _) val) = do
+step (App (Lam (Ref n t) _ _) val) = do
     arg' <- step val
-    call (externf (Name $ toS $ rname fn)) arg'
+    call (externf (Name $ toS n) t) arg'
 
 -- Add a constant global variable
 --
 -- Lambda assigning an expression with free variables make no sense, handle the
 -- case somewhere before code generation.
-step (Let (Ref name' _t1) (Lit (LNumber n _t2))) = do
-    addDefn $ global'
-    return $ ConstantOperand c
+--
+-- Type information is slightly redundant here. It can be figured out from the
+-- explicit tags or from the constructors.
+step (Let (Ref name' _t1) (Lit val)) = do
+    addDefn global'
+    return $ ConstantOperand value'
 
   where
-    c :: Constant
-    c = Int 64 n
+    (value', tipe') = case val of
+        (LNumber n) -> (Int 64 n, i64)
+        (LBool True) -> (Int 1 1, i1)
+        (LBool False) -> (Int 1 0, i1)
 
     global' :: Global
     global' = globalVariableDefaults
       { name = Name $ toS name'
-      , initializer = Just c
-      , type' = number
+      , initializer = Just value'
+      , type' = tipe'
       }
-
-step something = error $ "Unknown pattern for step: " <> show something
 
 ---
 --- Code generation
@@ -318,5 +320,5 @@ pretty :: [Core] -> Text
 pretty ast = toS . ppllvm $ compile ast
 
 -- | Print compiled LLVM IR to stdout
-native :: [Core] -> IO Text
-native ast = toLLVM $ compile ast
+genNative :: [Core] -> IO Text
+genNative ast = toLLVM $ compile ast
