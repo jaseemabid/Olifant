@@ -20,10 +20,10 @@ import Prelude (last, init)
 -- 2. Function types is redundant with arg types and ret type
 -- 3. Non empty [] for TArrow
 
-data Ref a = Ref {rname :: Text, tipe :: Tipe}
+data Ref a = Ref {rname :: Text, tipe :: a}
     deriving (Show, Functor, Foldable, Traversable)
 
-data Literal a = LNumber Integer | LBool Bool
+data Literal a = LNumber Int | LBool Bool
     deriving (Show, Functor, Foldable, Traversable)
 
 data Tipe = TInt | TBool | TArrow [Tipe]

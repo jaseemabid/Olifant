@@ -27,7 +27,7 @@ type SymbolTable = [(Text, Operand)]
 data GenState = GenState
     { blocks :: [BlockState] -- Blocks, ordered and named
     , symtab :: SymbolTable  -- Symbol table
-    , counter :: Integer
+    , counter :: Int
     , mod :: Module          -- The LLVM Module
     } deriving (Show)
 
@@ -235,7 +235,7 @@ step :: Core -> Codegen Operand
 step (Var (Ref n t)) = return $ local t n
 
 -- | Make a constant operand out of the constant and return it.
-step (Lit (LNumber n)) = return $ ConstantOperand $ Int 64 n
+step (Lit (LNumber n)) = return $ ConstantOperand $ Int 64 (toInteger n)
 step (Lit (LBool True)) = return $ ConstantOperand $ Int 1 1
 step (Lit (LBool False)) = return $ ConstantOperand $ Int 1 0
 
@@ -274,7 +274,7 @@ step (Let (Ref name' _t1) (Lit val)) = do
 
   where
     (value', tipe') = case val of
-        (LNumber n) -> (Int 64 n, i64)
+        (LNumber n) -> (Int 64 (toInteger n), i64)
         (LBool True) -> (Int 1 1, i1)
         (LBool False) -> (Int 1 0, i1)
 
