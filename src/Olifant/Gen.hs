@@ -20,28 +20,6 @@ import           LLVM.Context (withContext)
 import           LLVM.Module (moduleLLVMAssembly, withModuleFromAST)
 import           LLVM.Pretty (ppllvm)
 
--- | Map from Olifant types to LLVM types
-native :: Tipe -> Type
-native TInt = i64
-native TBool = i1
-native (TArrow types) = FunctionType {
-  argumentTypes = map native $ P.init types
-  , resultType = native $ P.last types
-  , isVarArg = False
-  }
-
--- | Get pointer to a local variable
---
--- @i64 f -> i64* f@
-pointer :: Operand -> Operand
-pointer (LocalReference t name') = LocalReference p name'
-  where
-    p :: Type
-    p = PointerType t $ AddrSpace 0
-pointer x = error $ "Cannot make a pointer for " <> show x
-
--- * State types
-
 -- | Symbol tables maps a name to a LLVM operand.
 type SymbolTable = [(Text, Operand)]
 
@@ -83,7 +61,7 @@ genState = GenState
 
 -- | Default `BlockState`
 blockState :: Text -> BlockState
-blockState name' = BlockState {name = name', stack = [], term = Nothing}
+blockState n = BlockState {name = n, stack = [], term = Nothing}
 
 -- * Handle `GenState`
 
@@ -126,13 +104,13 @@ push ins = do
 --  - Adds @%2 = Add 1 2@ to the stack
 --  - Returns @%2@
 --
-unnamed :: Instruction -> Codegen Operand
-unnamed ins = do
+unnamed :: Tipe -> Instruction -> Codegen Operand
+unnamed t ins = do
     new <- fresh
     push $ new := ins
-    return $ LocalReference i64 new
-    -- Make a fresh unnamed variable; %4 or %5
+    return $ LocalReference (native t) new
   where
+    -- | Make a fresh unnamed variable; %4 or %5
     fresh :: Codegen Name
     fresh = do
         n <- gets counter
@@ -145,8 +123,8 @@ unnamed ins = do
 --  - Adds @%foo = Add 1 2@ to the stack
 --  - Returns @%foo@
 --
-named :: Text -> Instruction -> Codegen Operand
-named str ins = push (op := ins) >> return (LocalReference i64 op)
+named :: Tipe -> Text -> Instruction -> Codegen Operand
+named t str ins = push (op := ins) >> return (LocalReference (native t) op)
   where
     op :: Name
     op = Name $ toS str
@@ -160,17 +138,17 @@ store :: Operand -> Operand -> Codegen ()
 store var val = push $ Do $ Store False (pointer var) val Nothing 0 []
 
 -- | Fetch a variable from memory
-load :: Operand -> Codegen Operand
-load var = unnamed $ Load False (pointer var) Nothing 0 []
+load :: Tipe -> Operand -> Codegen Operand
+load t var = unnamed t $ Load False (pointer var) Nothing 0 []
 
 -- | Make an `alloca` instruction
-alloca :: Type -> Maybe Text -> Codegen Operand
-alloca ty Nothing = unnamed $ Alloca ty Nothing 0 []
-alloca ty (Just ref) = named ref $ Alloca ty Nothing 0 []
+alloca :: Tipe -> Maybe Text -> Codegen Operand
+alloca t Nothing = unnamed t $ Alloca (native t) Nothing 0 []
+alloca t (Just ref) = named t ref $ Alloca (native t) Nothing 0 []
 
 -- | Call a function `fn` with `arg`
-call :: Operand -> Operand -> Codegen Operand
-call fn arg' = unnamed $ Call Nothing C [] fn' args' [] []
+call :: Tipe -> Operand -> Operand -> Codegen Operand
+call t fn arg' = unnamed t $ Call Nothing C [] fn' args' [] []
   where
     fn' :: CallableOperand
     fn' = Right fn
@@ -193,42 +171,55 @@ terminator result = return $ Do $ Ret (Just result) []
 -- * References
 
 -- | Get a reference operand from a string
-local :: Text -> Operand
-local v = LocalReference i64 $ Name $ toS v
+local :: Tipe -> Text -> Operand
+local t n = LocalReference (native t) $ Name $ toS n
 
--- |
-global ::  Name -> Constant
-global = GlobalReference i64
+-- | Get a global reference from a string
+global :: Tipe -> Text -> Constant
+global t n = GlobalReference (native t) $ Name $ toS n
+
+-- | Map from Olifant types to LLVM types
+native :: Tipe -> Type
+native TInt = i64
+native TBool = i1
+native (TArrow types) = FunctionType {
+    argumentTypes = map native $ P.init types
+  , resultType = native $ P.last types
+  , isVarArg = False
+  }
+
+-- | Get pointer to a local variable
+--
+-- @i64 f -> i64* f@
+pointer :: Operand -> Operand
+pointer (LocalReference t name') = LocalReference p name'
+  where
+    p :: Type
+    p = PointerType t $ AddrSpace 0
+pointer x = error $ "Cannot make a pointer for " <> show x
 
 -- | Make an operand out of a global function
 --
 --   %f -> @f
---   /nati
---
-externf :: Name -> Tipe -> Operand
-externf name tipe = ConstantOperand $ GlobalReference (native tipe) name
+externf :: Tipe -> Text -> Operand
+externf t n = ConstantOperand $ global t n
 
 -- | Define a function
 define :: Ref a -> Ref a -> [BasicBlock] -> Codegen ()
-define (Ref n t) arg body' = do
+define (Ref n t) arg' body' = do
     addDefn $
       functionDefaults {
         name          = Name $ toS n
         , parameters  = ([Parameter ty nm [] | (ty, nm) <- params], False)
-        , returnType  = ret t
+        , returnType  = native $ ret t
         , basicBlocks = body'
       }
 
-    addSym n $ externf (Name $ toS n) t
+    addSym n $ externf t n
   where
-    -- | `Tipe` is the function type, not just return type
-    ret :: Tipe -> Type
-    ret (TArrow ts) = native $ P.last ts
-    ret t = native t
-
     params :: [(Type, Name)]
     params = case t of
-      (TArrow ts) -> [(native t, Name $ toS $ rname arg) | t <- P.init ts]
+      (TArrow ts) -> [(native t', Name $ toS $ rname arg') | t' <- P.init ts]
       _ -> []
 
 -- * AST Traversal
@@ -241,7 +232,7 @@ step :: Core -> Codegen Operand
 
 -- | Find the operand for the variable from the symbol table and return it.
 --
-step (Var (Ref n _type)) = return $ local n
+step (Var (Ref n t)) = return $ local t n
 
 -- | Make a constant operand out of the constant and return it.
 step (Lit (LNumber n)) = return $ ConstantOperand $ Int 64 n
@@ -249,7 +240,7 @@ step (Lit (LBool True)) = return $ ConstantOperand $ Int 1 1
 step (Lit (LBool False)) = return $ ConstantOperand $ Int 1 0
 
 -- | Top level lambda, lifted before it gets here
-step (Lam ref@(Ref n _t) arg body') = do
+step (Lam ref@(Ref n t) arg' body') = do
     -- Make a new block for this function and add to `GenState`
     modify $ \s -> s {blocks = blocks s ++ [blockState n]}
 
@@ -258,9 +249,9 @@ step (Lam ref@(Ref n _t) arg body') = do
     term' <- terminator result
     instructions <- stack <$> current
 
-    define ref arg [basicBlock instructions term']
+    define ref arg' [basicBlock instructions term']
 
-    return $ local n
+    return $ local t n
 
 -- Apply the function
 --
@@ -268,7 +259,7 @@ step (Lam ref@(Ref n _t) arg body') = do
 -- that the function is even defined.
 step (App (Lam (Ref n t) _ _) val) = do
     arg' <- step val
-    call (externf (Name $ toS n) t) arg'
+    call (ret t) (externf t n) arg'
 
 -- Add a constant global variable
 --

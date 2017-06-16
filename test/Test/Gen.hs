@@ -47,10 +47,10 @@ use = testCase "Use global variable" $
 
     gen :: Text
     gen = "; ModuleID = 'calc'\n\n\
-          \define external ccc i1 @f(ii %a){\n\
+          \define external ccc i1 @f(i1 %a){\n\
           \entry:\n\
-          \  ret i1 %b\n}\
-          \define external ccc i64 @f(i64 %a){\n\
+          \  ret i1 %b\n}\n\n\
+          \define external ccc i64 @g(i64 %a){\n\
           \entry:\n\
           \  ret i64 %i\n}"
 

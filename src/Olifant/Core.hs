@@ -4,6 +4,7 @@
 module Olifant.Core where
 
 import Protolude
+import Prelude (last, init)
 
 -- Core
 --
@@ -44,6 +45,18 @@ data Expr a
 type CoreUT = Expr ()
 
 type Core = Expr Tipe
+
+-- * Type helpers
+
+-- | Return type of a type
+ret :: Tipe -> Tipe
+ret (TArrow ts) = last ts
+ret t = t
+
+-- | Arguments of a type
+args :: Tipe -> Tipe
+args (TArrow ts) = TArrow $ init ts
+args t = t
 
 -- * Aliases
 
