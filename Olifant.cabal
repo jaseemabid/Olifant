@@ -42,6 +42,7 @@ executable olifant
   ghc-options:         -Wall -fwarn-tabs -threaded -rtsopts -with-rtsopts=-N
   build-depends:       base
                      , filepath
+                     , protolude
                      , Olifant
   default-language:    Haskell2010
   default-extensions:  NoImplicitPrelude, OverloadedStrings, DuplicateRecordFields

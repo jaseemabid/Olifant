@@ -3,19 +3,24 @@ Module      : Main
 Description : The CLI interface to Olifant
 -}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module Main where
 
-import Prelude
+import Protolude 
+import Prelude (String)
+
+import Olifant.Parser (read)
+
 import System.Environment (getArgs)
 import System.FilePath (replaceExtension)
-import System.IO
+import System.IO (hReady)
 
 usage :: IO ()
-usage = putStrLn "Usage: olifant [-vh] [file] "
+usage = putStrLn ("Usage: olifant [-vh] [file] " :: Text)
 
 version :: IO ()
-version = putStrLn "The Glorious Olifant, version 0.0.0.1"
+version = putStrLn ("The Glorious Olifant, version 0.0.0.1" :: Text)
 
 parseArgs :: [String] -> IO ()
 parseArgs ["-h"] = usage
@@ -36,5 +41,5 @@ main :: IO ()
 main = getArgs >>= parseArgs
 
 -- | Compile a string and return result
-exec :: String -> IO String
-exec _str = error "notImplemented" -- readIO str >>= native
+exec :: Text -> IO Text 
+exec str = return $ show (read str)  
