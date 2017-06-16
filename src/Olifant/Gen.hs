@@ -205,7 +205,7 @@ externf :: Tipe -> Text -> Operand
 externf t n = ConstantOperand $ global t n
 
 -- | Define a function
-define :: Ref a -> Ref a -> [BasicBlock] -> Codegen ()
+define :: Ref Tipe -> Ref Tipe -> [BasicBlock] -> Codegen ()
 define (Ref n t) arg' body' = do
     addDefn $
       functionDefaults {
