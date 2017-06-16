@@ -1,0 +1,23 @@
+# watson - inline issue manager
+# http://goosecode.com/watson/
+
+# Directories
+[dirs]
+./
+
+[show_type]
+dirty
+
+# Tags
+[tags]
+fix
+review
+todo
+
+# Ignores
+[ignore]
+.stack-work
+LICENSE
+README.org
+Setup.hs
+TAGS

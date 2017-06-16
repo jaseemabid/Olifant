@@ -1,5 +1,10 @@
 {-# LANGUAGE OverloadedStrings #-}
 
+-- Known issues
+--
+-- [todo] - Parser doesn't understand precedence with braces
+
+
 module Test.Parser where
 
 import Protolude hiding (bool)
