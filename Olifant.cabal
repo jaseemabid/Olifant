@@ -23,6 +23,7 @@ library
                      , Olifant.Parser
   build-depends:       base >= 4.7 && < 5
                      , bytestring
+                     , containers
                      , llvm-hs
                      , llvm-hs-pretty
                      , llvm-hs-pure
