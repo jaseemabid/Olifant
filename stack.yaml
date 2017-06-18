@@ -1,7 +1,8 @@
 resolver: lts-8.16
 
 extra-deps:
-  - llvm-hs-4.0.1.0
+- llvm-hs-pure-4.1.0.0
+- llvm-hs-4.1.0.0
 
 packages:
   - .

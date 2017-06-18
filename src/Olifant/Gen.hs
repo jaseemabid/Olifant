@@ -9,6 +9,7 @@ import           Olifant.Core
 import qualified Prelude as P
 import           Protolude hiding (Type, mod, local)
 
+import           Data.ByteString.Short (toShort)
 import           LLVM.AST
 import           LLVM.AST.AddrSpace
 import           LLVM.AST.Attribute
@@ -40,7 +41,7 @@ data GenState = GenState
 --
 -- As of now, a function contains just one block.
 data BlockState = BlockState
-  { name :: Text                     -- Name of the block
+  { bname :: Text                     -- Name of the block
   , stack :: [Named Instruction]     -- List of operations
   , term :: Maybe (Named Terminator) -- Block terminator
   } deriving (Show)
@@ -61,7 +62,7 @@ genState = GenState
 
 -- | Default `BlockState`
 blockState :: Text -> BlockState
-blockState n = BlockState {name = n, stack = [], term = Nothing}
+blockState n = BlockState {bname = n, stack = [], term = Nothing}
 
 -- * Handle `GenState`
 
@@ -127,7 +128,11 @@ named :: Tipe -> Text -> Instruction -> Codegen Operand
 named t str ins = push (op := ins) >> return (LocalReference (native t) op)
   where
     op :: Name
-    op = Name $ toS str
+    op = lname str
+
+-- | Helper function to convert a Text -> ByteString -> ShortByteString -> Name
+lname :: Text -> Name
+lname = Name . toShort . toS
 
 -- * Primitive wrappers
 
@@ -172,11 +177,11 @@ terminator result = return $ Do $ Ret (Just result) []
 
 -- | Get a reference operand from a string
 local :: Tipe -> Text -> Operand
-local t n = LocalReference (native t) $ Name $ toS n
+local t n = LocalReference (native t) $ lname n
 
 -- | Get a global reference from a string
 global :: Tipe -> Text -> Constant
-global t n = GlobalReference (native t) $ Name $ toS n
+global t n = GlobalReference (native t) $ lname n
 
 -- | Map from Olifant types to LLVM types
 native :: Tipe -> Type
@@ -209,7 +214,7 @@ define :: Ref Tipe -> Ref Tipe -> [BasicBlock] -> Codegen ()
 define (Ref n t) arg' body' = do
     addDefn $
       functionDefaults {
-        name          = Name $ toS n
+        name          = lname n
         , parameters  = ([Parameter ty nm [] | (ty, nm) <- params], False)
         , returnType  = native $ ret t
         , basicBlocks = body'
@@ -219,7 +224,7 @@ define (Ref n t) arg' body' = do
   where
     params :: [(Type, Name)]
     params = case t of
-      (TArrow ts) -> [(native t', Name $ toS $ rname arg') | t' <- P.init ts]
+      (TArrow ts) -> [(native t', lname $ rname arg') | t' <- P.init ts]
       _ -> []
 
 -- * AST Traversal
@@ -280,7 +285,7 @@ step (Let (Ref name' _t1) (Lit val)) = do
 
     global' :: Global
     global' = globalVariableDefaults
-      { name = Name $ toS name'
+      { name = Name $ toShort $ toS name'
       , initializer = Just value'
       , type' = tipe'
       }
@@ -299,12 +304,8 @@ compile prog = mod $ execState (runCodegen (run prog)) genState
 -- | Generate native code with C++ FFI
 toLLVM :: Module -> IO Text
 toLLVM modl =
-    withContext $ \context -> do
-        errOrLLVM <-
-            runExceptT $ withModuleFromAST context modl moduleLLVMAssembly
-        case errOrLLVM of
-            Left err -> return $ toS $ "Error: " ++ err
-            Right llvm -> return $ toS llvm
+    withContext $ \context ->
+        toS <$> withModuleFromAST context modl moduleLLVMAssembly
 
 -- | Generate native code with C++ FFI
 pretty :: [Core] -> Text
