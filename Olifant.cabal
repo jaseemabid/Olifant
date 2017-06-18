@@ -53,6 +53,7 @@ test-suite Olifant-test
   hs-source-dirs:      test
   main-is:             Test.hs
   other-modules:       Test
+                     , Test.Compiler
                      , Test.Gen
                      , Test.Parser
   build-depends:       Olifant

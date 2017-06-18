@@ -21,13 +21,13 @@ import Prelude (last, init)
 -- 3. Non empty [] for TArrow
 
 data Ref a = Ref {rname :: Text, tipe :: a}
-    deriving (Show, Functor, Foldable, Traversable)
+    deriving (Eq, Show, Functor, Foldable, Traversable)
 
 data Literal a = LNumber Int | LBool Bool
-    deriving (Show, Functor, Foldable, Traversable)
+    deriving (Eq, Show, Functor, Foldable, Traversable)
 
 data Tipe = TInt | TBool | TArrow [Tipe]
-    deriving (Show)
+    deriving (Eq, Show)
 
 data Expr a
     = Var (Ref a)
@@ -40,7 +40,7 @@ data Expr a
       }
     -- Let binds a global variable for now; fix the semantics
     | Let (Ref a) (Expr a)
-    deriving (Show, Functor, Foldable, Traversable)
+    deriving (Eq, Show, Functor, Foldable, Traversable)
 
 type CoreUT = Expr ()
 
