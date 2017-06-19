@@ -5,7 +5,7 @@ module Test.Compiler where
 import           Protolude hiding (cast)
 
 import qualified Olifant.Calculus as CL
-import           Olifant.Compiler (cast)
+import           Olifant.Compiler (cast, undef)
 import qualified Olifant.Core as CO
 import           Olifant.Parser (read)
 
@@ -13,7 +13,7 @@ import           Test.Tasty
 import           Test.Tasty.HUnit
 
 tests :: TestTree
-tests = testGroup "Compiler" [translate]
+tests = testGroup "Compiler" [translate, zombie]
 
 -- * Compile calculus to core
 
@@ -35,3 +35,23 @@ translate = testCase "Trivial function translation" $ do
         t = CO.Ref "~" CO.unit
         x = CO.Ref "x" CO.unit
         y = CO.Ref "y" CO.unit
+
+zombie :: TestTree
+zombie = testCase "Find undefined variables" $ do
+    (undef . cast) <$$> read s1 @?= Right [Left "p"]
+    (undef . cast) <$$> read s1 @?= Right [CL.Lam (CO.Ref "x" CO.unit)]
+  where
+    s1 :: Text
+    s1 = "/x.p"
+
+    s2 :: Text
+    s2 = "/x.42"
+
+-- * Helpers
+
+-- | Nested functors
+
+(<$$>) :: (Functor f, Functor g) => (a -> b) -> f (g a) -> f (g b)
+(<$$>) = fmap . fmap
+
+infixr 8 <$$>
