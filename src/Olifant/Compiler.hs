@@ -5,7 +5,6 @@ Description : Compile Calculus to Core
 module Olifant.Compiler where
 
 import Protolude hiding (cast)
-import qualified Data.Set as Set
 
 import Olifant.Core
 import qualified Olifant.Calculus as C
@@ -17,30 +16,23 @@ import qualified Olifant.Calculus as C
 -- directly.
 --
 cast :: C.Calculus -> CoreUT
-cast (C.Var a) = Var $ Ref a unit
-cast (C.Number n) = Lit (LNumber n)
-cast (C.Bool b) = Lit (LBool b)
-cast (C.App fn arg') = App (cast fn) (cast arg')
-cast (C.Lam n b) = Lam (Ref "~" unit) (Ref n unit) (cast b)
-cast (C.Let var val) = Let (Ref var unit) (cast val)
+cast (C.Var a) = Var unit $ Ref a
+cast (C.Number n) = Lit unit (LNumber n)
+cast (C.Bool b) = Lit unit (LBool b)
+cast (C.App fn arg') = App unit (cast fn) (cast arg')
+cast (C.Lam n b) = Lam unit (Ref n) (cast b)
 
--- | Find undefined variables
---
--- This one can serve as an example for a nano pass!
---
-undef :: CoreUT -> Either Text CoreUT
-undef core = evalState (undef' core) Set.empty
+-- | Find free variables in an expression; typed or untyped
+free :: Expr a -> [Ref]
+free core = free' core []
   where
-    undef' :: CoreUT -> State (Set Text) (Either Text CoreUT)
-    undef' e@(Var (Ref a _t)) = do
-      x <- Set.member a <$> get
-      return $ if x then Right e else Left a
+    free' :: Expr a -> [Ref] -> [Ref]
 
-    undef' (l@Lit{} ) = return $ Right l
+    free' (Var _ x) acc = if x `elem` acc then [] else [x]
 
-    undef' (App _f exp') = undef' exp'
+    free' Lit{} _ = []
+
+    free' (App _t f exp') acc = free' f acc ++ free' exp' acc
 
     -- [todo] - Evaluate body with arg as well
-    undef' (Lam _fn arg' body') = undef' (Var arg') >> undef' body'
-
-    undef' (Let _var val) =  undef' val
+    free' (Lam _fn arg body) acc = free' body (arg: acc)

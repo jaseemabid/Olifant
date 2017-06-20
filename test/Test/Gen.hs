@@ -18,10 +18,10 @@ tests = testGroup "LLVM Code generator" [assign, use, fn, constfn]
 
 assign :: TestTree
 assign = testCase "Global variables" $
-  pretty [
-      Let (Ref "x" TInt) (Lit (LNumber 42))
-    , Let (Ref "y" TBool) (Lit (LBool True))
-    ] @?= toS gen
+    pretty [
+        Bind (Ref "x") (Lit TInt (LNumber 42))
+      , Bind (Ref "y") (Lit TBool (LBool True))
+      ] @?= Right gen
 
   where
     gen :: Text
@@ -31,19 +31,18 @@ assign = testCase "Global variables" $
 
 use :: TestTree
 use = testCase "Use global variable" $
-  pretty progn @?= toS gen
+    pretty progn @?= Right gen
 
   where
     -- | Sample program `x -> x`
-    progn :: [Core]
-    progn = [Lam f (Ref "a" TBool) $ Var (Ref "b" TBool)
-           , Lam g (Ref "a" TInt) $ Var (Ref "i" TInt)]
+    progn :: Progn
+    progn = [Bind (Ref "f") f, Bind (Ref "g") g]
 
-    f :: Ref Tipe
-    f = Ref "f" (TArrow [TBool, TBool])
+    f :: Core
+    f = Lam (TArrow [TBool, TBool]) (Ref "a") $ Var TBool (Ref "b")
 
-    g :: Ref Tipe
-    g = Ref "g" (TArrow [TInt, TInt])
+    g :: Core
+    g = Lam (TArrow [TInt, TInt]) (Ref "a") $ Var TInt (Ref "i")
 
     gen :: Text
     gen = "; ModuleID = 'calc'\n\n\
@@ -55,21 +54,13 @@ use = testCase "Use global variable" $
           \  ret i64 %i\n}"
 
 fn :: TestTree
-fn = testCase "Simple identity function" $ pretty [progn] @?= toS gen
+fn = testCase "Simple identity function" $
+     pretty progn @?= Right gen
 
   where
     -- | Sample program `x -> x`
-    progn :: Core
-    progn = Lam id' arg' body'
-      where
-        id' :: Ref Tipe
-        id' = Ref "id" (TArrow [TInt, TInt])
-
-        arg' :: Ref Tipe
-        arg' = Ref "x" TInt
-
-        body' :: Core
-        body' = Var $ Ref "x" TInt
+    progn :: Progn
+    progn = [Bind (Ref "id") (Lam (TArrow [TInt, TInt]) (Ref "x") $ Var TInt (Ref "x"))]
 
     gen :: Text
     gen = "; ModuleID = 'calc'\n\n\
@@ -79,21 +70,15 @@ fn = testCase "Simple identity function" $ pretty [progn] @?= toS gen
 
 constfn :: TestTree
 constfn = testCase "Const function returning false" $
-  pretty [progn] @?= toS gen
+  pretty progn @?= Right gen
 
   where
     -- | Sample program `x -> x`
-    progn :: Core
-    progn = Lam sad arg' body'
+    progn :: Progn
+    progn = [Bind (Ref "sad") sad]
 
-    sad :: Ref Tipe
-    sad = Ref "sad" (TArrow [TInt, TBool])
-
-    arg' :: Ref Tipe
-    arg' = Ref "y" TInt
-
-    body' :: Core
-    body' = Lit (LBool False)
+    sad :: Core
+    sad = Lam (TArrow [TInt, TBool]) (Ref "y") (Lit TBool (LBool False))
 
     gen :: Text
     gen = "; ModuleID = 'calc'\n\n\

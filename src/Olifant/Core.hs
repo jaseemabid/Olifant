@@ -1,49 +1,50 @@
+{-|
+Module      : Olifant.Core
+Description : Core data structures of the compiler
+-}
+
 {-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE DeriveFoldable #-}
 {-# LANGUAGE DeriveFunctor #-}
+
 module Olifant.Core where
 
 import Protolude
 import Prelude (last, init)
 
--- Core
---
--- https://ghc.haskell.org/trac/ghc/wiki/Commentary/Compiler/CoreSynType
--- http://blog.ezyang.com/2013/05/the-ast-typing-problem/
---
--- // Intentionally presented without comments //
---
+--  - https://ghc.haskell.org/trac/ghc/wiki/Commentary/Compiler/CoreSynType
+--  - http://blog.ezyang.com/2013/05/the-ast-typing-problem/
 
--- * Known issues
---
--- 1. Ref a -> a
--- 2. Function types is redundant with arg types and ret type
--- 3. Non empty [] for TArrow
+-- Known issues
+-- [TODO] - Ensure non empty [] for TArrow
 
-data Ref a = Ref {rname :: Text, tipe :: a}
-    deriving (Eq, Show, Functor, Foldable, Traversable)
+newtype Ref = Ref {rname :: Text}
+    deriving (Eq, Ord, Show)
 
-data Literal a = LNumber Int | LBool Bool
-    deriving (Eq, Show, Functor, Foldable, Traversable)
+data Literal = LNumber Int | LBool Bool
+    deriving (Eq, Show)
 
 data Tipe = TInt | TBool | TArrow [Tipe]
     deriving (Eq, Show)
 
+-- | An annotated lambda calculus expression
 data Expr a
-    = Var (Ref a)
-    | Lit (Literal a)
-    | App (Expr a) (Expr a)
-    | Lam
-      { name :: Ref a
-      , arg :: Ref a
-      , body :: Expr a
-      }
-    -- Let binds a global variable for now; fix the semantics
-    | Let (Ref a) (Expr a)
+    = Var a Ref
+    | Lit a Literal
+    | App a (Expr a) (Expr a)
+    | Lam a Ref (Expr a)
     deriving (Eq, Show, Functor, Foldable, Traversable)
 
+-- | Top level binding of a lambda calc expression to a name
+data Bind a = Bind Ref (Expr a)
+
+-- | A program is a list of typed bindings
+type Progn = [Bind Tipe]
+
+-- | Untyped calculus
 type CoreUT = Expr ()
 
+-- | Typed calculus
 type Core = Expr Tipe
 
 -- * Type helpers

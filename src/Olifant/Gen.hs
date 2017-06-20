@@ -1,3 +1,8 @@
+{-|
+Module      : Olifant.Gen
+Description : LLVM Code generator for Core
+-}
+
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -21,15 +26,11 @@ import           LLVM.Context (withContext)
 import           LLVM.Module (moduleLLVMAssembly, withModuleFromAST)
 import           LLVM.Pretty (ppllvm)
 
--- | Symbol tables maps a name to a LLVM operand.
-type SymbolTable = [(Text, Operand)]
-
 -- | State of the complete program
 data GenState = GenState
-    { blocks :: [BlockState] -- Blocks, ordered and named
-    , symtab :: SymbolTable  -- Symbol table
-    , counter :: Int
-    , mod :: Module          -- The LLVM Module
+    { blocks   :: [BlockState]  -- Blocks, ordered and named
+    , counter  :: Int           -- Number of unnamed variables
+    , mod      :: Module        -- The LLVM Module pointer
     } deriving (Show)
 
 -- | State of a single block
@@ -46,40 +47,43 @@ data BlockState = BlockState
   , term :: Maybe (Named Terminator) -- Block terminator
   } deriving (Show)
 
+-- | Errors raised by the code generator
+--
+-- These errors are not expected to be recoverable. A valid type safe `Progn`
+-- shouldn't raise an error and there is nothing much to do if the input is
+-- wrong.
+newtype Error = E Text
+  deriving (Eq, Show)
+
 -- | Codegen state monad
 newtype Codegen a = Codegen
-    { runCodegen :: State GenState a
-    } deriving (Functor, Applicative, Monad, MonadState GenState)
+    { runCodegen :: StateT GenState (ExceptT Error Identity) a
+    } deriving (Functor, Applicative, Monad, MonadError Error,  MonadState GenState)
 
 -- | Default `GenState`
 genState :: GenState
 genState = GenState
            { blocks = []
-           , symtab = []
            , mod = defaultModule {moduleName = "calc"}
            , counter = 0
            }
 
 -- | Default `BlockState`
-blockState :: Text -> BlockState
-blockState n = BlockState {bname = n, stack = [], term = Nothing}
+blockState :: Ref -> BlockState
+blockState n = BlockState {bname = rname n, stack = [], term = Nothing}
 
--- * Handle `GenState`
+-- * Manipulate `GenState`
 
--- Add a global definition to the LLVM module
-addDefn :: Global -> Codegen ()
-addDefn g = do
+-- | Add a global definition to the LLVM module
+define :: Global -> Codegen ()
+define g = do
     st <- get
     modl <- gets mod
     let defs = moduleDefinitions modl ++ [GlobalDefinition g]
     let mod' = modl {moduleDefinitions = defs}
     put $ st {mod = mod'}
 
--- Add a symbol to the symbol table
-addSym :: Text -> Operand -> Codegen ()
-addSym symbol op = modify $ \s -> s {symtab = (symbol, op): symtab s}
-
--- * Handle `BlockState`
+-- * Manipulate `BlockState`
 
 -- | Get the current block
 current :: Codegen BlockState
@@ -195,7 +199,7 @@ native (TArrow types) = FunctionType {
 
 -- | Get pointer to a local variable
 --
--- @i64 f -> i64* f@
+-- > i64 f -> i64* f
 pointer :: Operand -> Operand
 pointer (LocalReference t name') = LocalReference p name'
   where
@@ -205,101 +209,107 @@ pointer x = error $ "Cannot make a pointer for " <> show x
 
 -- | Make an operand out of a global function
 --
---   %f -> @f
+-- > %f -> @f
 externf :: Tipe -> Text -> Operand
 externf t n = ConstantOperand $ global t n
 
--- | Define a function
-define :: Ref Tipe -> Ref Tipe -> [BasicBlock] -> Codegen ()
-define (Ref n t) arg' body' = do
-    addDefn $
-      functionDefaults {
-        name          = lname n
-        , parameters  = ([Parameter ty nm [] | (ty, nm) <- params], False)
-        , returnType  = native $ ret t
-        , basicBlocks = body'
+-- | Generate code for a top level binding
+--
+-- The only allowed top level constructs are global variables and function
+-- definitions. Any other term in top level will raise an error.
+gen :: Bind Tipe -> Codegen Operand
+
+-- | A top level variable could be an alias, but its an error for now
+gen (Bind _ (Var _ ref)) = throwError $ E $ "Top level alias " <> rname ref
+
+-- | Add a constant global variable
+gen (Bind (Ref name') lit@(Lit t _val)) = do
+    op@(ConstantOperand value') <- step lit
+
+    define $  global' value'
+    return op
+
+  where
+    global' :: Constant -> Global
+    global' val = globalVariableDefaults
+      { name = Name $ toShort $ toS name'
+      , initializer = Just val
+      , type' = native t
       }
 
-    addSym n $ externf t n
+-- | Top level lambda expression
+--
+-- [TODO] - Ensure `t1 == t2`
+-- [TODO] - Should do the closure business
+gen (Bind n (Lam t arg body)) = do
+
+    -- [TODO] - Localize this computation
+    -- Make a new block for this function and add to `GenState`
+    modify $ \s -> s {blocks = blocks s ++ [blockState n]}
+
+    result <- step body
+    term' <- terminator result
+
+    instructions <- stack <$> current
+
+    let fn = functionDefaults {
+          name          = lname $ rname n
+        , parameters  = ([Parameter ty nm [] | (ty, nm) <- params], False)
+        , returnType  = native $ ret t
+        , basicBlocks = [basicBlock instructions term']
+      }
+
+    define fn
+    return $ local t $ rname arg
   where
     params :: [(Type, Name)]
     params = case t of
-      (TArrow ts) -> [(native t', lname $ rname arg') | t' <- P.init ts]
+      (TArrow ts) -> [(native t', lname $ rname arg) | t' <- P.init ts]
       _ -> []
 
--- * AST Traversal
+gen (Bind r App{}) = throwError $ E $ "Top level function call " <> rname r
 
--- | Step through the AST
+-- | Generate code for an expression not at the top level
 --
 -- Step should return an operand, which is the LHS of the operand it just dealt
 -- with. Step is free to push instructions to the current block.
 step :: Core -> Codegen Operand
 
--- | Find the operand for the variable from the symbol table and return it.
+-- | Convert a reference into a local operand.
 --
-step (Var (Ref n t)) = return $ local t n
+step (Var t (Ref n)) = return $ local t n
 
--- | Make a constant operand out of the constant and return it.
-step (Lit (LNumber n)) = return $ ConstantOperand $ Int 64 (toInteger n)
-step (Lit (LBool True)) = return $ ConstantOperand $ Int 1 1
-step (Lit (LBool False)) = return $ ConstantOperand $ Int 1 0
-
--- | Top level lambda, lifted before it gets here
-step (Lam ref@(Ref n t) arg' body') = do
-    -- Make a new block for this function and add to `GenState`
-    modify $ \s -> s {blocks = blocks s ++ [blockState n]}
-
-    -- [TODO] - Should do the closure business
-    result <- step body'
-    term' <- terminator result
-    instructions <- stack <$> current
-
-    define ref arg' [basicBlock instructions term']
-
-    return $ local t n
+-- | Make a constant operand out of the constant
+step (Lit _t (LNumber n)) = return $ ConstantOperand $ Int 64 (toInteger n)
+step (Lit _t (LBool True)) = return $ ConstantOperand $ Int 1 1
+step (Lit _t (LBool False)) = return $ ConstantOperand $ Int 1 0
 
 -- Apply the function
 --
 -- This is a bit too primitive. There are no type checks, or at least ensuring
 -- that the function is even defined.
-step (App (Lam (Ref n t) _ _) val) = do
+step (App _t (Lam t (Ref n) _body) val) = do
     arg' <- step val
     call (ret t) (externf t n) arg'
 
--- Add a constant global variable
---
--- Lambda assigning an expression with free variables make no sense, handle the
--- case somewhere before code generation.
---
--- Type information is slightly redundant here. It can be figured out from the
--- explicit tags or from the constructors.
-step (Let (Ref name' _t1) (Lit val)) = do
-    addDefn global'
-    return $ ConstantOperand value'
+-- | Apply non function - throw an error
+step (App _t a _) = throwError $ E $ "Applied non function " <> show a
 
-  where
-    (value', tipe') = case val of
-        (LNumber n) -> (Int 64 (toInteger n), i64)
-        (LBool True) -> (Int 1 1, i1)
-        (LBool False) -> (Int 1 0, i1)
+-- \ Higher order function - throw an error
+step (Lam _t ref _) = throwError $ E $ "Higher order function" <> show ref
 
-    global' :: Global
-    global' = globalVariableDefaults
-      { name = Name $ toShort $ toS name'
-      , initializer = Just value'
-      , type' = tipe'
-      }
+-- * Code generation
 
----
---- Code generation
----
+-- | Make an LLVM module from Core
+compile :: Progn -> Either Error Module
+compile prog = do
+  let computation = runCodegen (run prog)
+  runIdentity $ runExceptT $ execStateT computation genState >>= return . mod
 
-compile :: [Core] -> Module
-compile prog = mod $ execState (runCodegen (run prog)) genState
   where
     -- | Step through the AST and _throw_ away the results
-    run :: [Core] -> Codegen ()
-    run = mapM_ step
+    run :: Progn -> Codegen ()
+    run = mapM_ gen
 
 -- | Generate native code with C++ FFI
 toLLVM :: Module -> IO Text
@@ -307,10 +317,12 @@ toLLVM modl =
     withContext $ \context ->
         toS <$> withModuleFromAST context modl moduleLLVMAssembly
 
--- | Generate native code with C++ FFI
-pretty :: [Core] -> Text
-pretty ast = toS . ppllvm $ compile ast
+-- | Pretty print LLVM AST with pure Haskell API
+pretty :: Progn -> Either Error Text
+pretty ast = toS . ppllvm <$> compile ast
 
--- | Print compiled LLVM IR to stdout
-genNative :: [Core] -> IO Text
-genNative ast = toLLVM $ compile ast
+-- | Return compiled LLVM IR
+llvm :: Progn -> IO (Either Error Text)
+llvm ast = case compile ast of
+  Left err -> return $ Left err
+  Right mod' -> toLLVM mod' >>= return . Right

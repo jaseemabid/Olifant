@@ -5,8 +5,8 @@ module Test.Compiler where
 import           Protolude hiding (cast)
 
 import qualified Olifant.Calculus as CL
-import           Olifant.Compiler (cast, undef)
-import qualified Olifant.Core as CO
+import           Olifant.Compiler (cast, free)
+import           Olifant.Core
 import           Olifant.Parser (read)
 
 import           Test.Tasty
@@ -15,8 +15,7 @@ import           Test.Tasty.HUnit
 tests :: TestTree
 tests = testGroup "Compiler" [translate, zombie]
 
--- * Compile calculus to core
-
+-- |  Compile calculus to core
 translate :: TestTree
 translate = testCase "Trivial function translation" $ do
     read source @?= Right [calc]
@@ -29,23 +28,24 @@ translate = testCase "Trivial function translation" $ do
     calc :: CL.Calculus
     calc = CL.Lam "x" (CL.Lam "y" (CL.Number 42))
 
-    core :: CO.CoreUT
-    core = CO.Lam t x (CO.Lam t y (CO.Lit (CO.LNumber 42)))
+    core :: CoreUT
+    core = Lam unit x (Lam unit y (Lit unit (LNumber 42)))
       where
-        t = CO.Ref "~" CO.unit
-        x = CO.Ref "x" CO.unit
-        y = CO.Ref "y" CO.unit
+        x = Ref "x"
+        y = Ref "y"
+
 
 zombie :: TestTree
 zombie = testCase "Find undefined variables" $ do
-    (undef . cast) <$$> read s1 @?= Right [Left "p"]
-    (undef . cast) <$$> read s1 @?= Right [CL.Lam (CO.Ref "x" CO.unit)]
-  where
-    s1 :: Text
-    s1 = "/x.p"
+    (free . cast) <$$> read "/x.p" @?= Right [[Ref "p"]]
+    (free . cast) <$$> read "/x.x" @?= Right [[]]
 
-    s2 :: Text
-    s2 = "/x.42"
+    (free . cast) <$$> read "/x.42" @?= Right [[]]
+
+    (free . cast) <$$> read "/x.f 42" @?= Right [[Ref "f"]]
+    (free . cast) <$$> read "/x.x 42" @?= Right [[]]
+
+    (free . cast) <$$> read "/x.42" @?= Right [[]]
 
 -- * Helpers
 
