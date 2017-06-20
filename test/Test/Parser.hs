@@ -16,7 +16,7 @@ import Test.Tasty
 import Test.Tasty.HUnit
 
 tests :: TestTree
-tests = testGroup "Parser" [literals, symbols, lam, application]
+tests = testGroup "Parser" [literals, symbols, lam, application, lett]
 
 literals :: TestTree
 literals = testCase "Literal numbers and booleans" $ do
@@ -58,6 +58,13 @@ application = testCase "λ application" $ do
   where
     d :: Calculus
     d = App (Var "a") (Var "b")
+
+lett :: TestTree
+lett = testCase "Let binding of the form `let a = 1`" $ do
+    expect "let a = 1" (Let "a" (Number 1))
+    expect "let a   =   1" (Let "a" (Number 1))
+    expect "let   a = 1" (Let "a" (Number 1))
+    expect "let id = /x.x" (Let "id" (Lam "x" (Var "x")))
 
 -- * Helper functions
 
