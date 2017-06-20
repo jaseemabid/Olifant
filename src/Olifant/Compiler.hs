@@ -21,6 +21,14 @@ cast (C.Number n) = Lit unit (LNumber n)
 cast (C.Bool b) = Lit unit (LBool b)
 cast (C.App fn arg') = App unit (cast fn) (cast arg')
 cast (C.Lam n b) = Lam unit (Ref n) (cast b)
+cast (C.Let _ _) = error "Cannot translate let expression to core"
+
+-- |  Compile a series of Calculus expressions into untyped core bindings
+--
+-- Consider the simplest well formed calculus for now. Only top level functions
+-- and variables. Last one is an expression which will be wrapped into a main.
+rename :: [C.Calculus] -> [Bind ()]
+rename = undefined
 
 -- | Find free variables in an expression; typed or untyped
 free :: Expr a -> [Ref]
