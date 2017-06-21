@@ -63,6 +63,12 @@ hello.ll:13:11: error: global variable reference must have pointer type
 
   Quick introduction to the various stages of compilation in the GHC compiler.
 
+- [ ] [[http://www.scs.stanford.edu/11au-cs240h/notes/ghc-slides.html][A Haskell compiler]]
+
+  David Terei's slides on the compiler internals.
+
+- [ ] [[https://gist.github.com/jozefg/652f1d7407b7f0266ae9][Tutorial on Closure Conversion and Lambda Lifting]]
+
 - [X] The AST Typing problem [2/2]
 
   About designing a well typed IR
