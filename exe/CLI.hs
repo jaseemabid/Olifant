@@ -7,10 +7,11 @@ Description : The CLI interface to Olifant
 
 module Main where
 
-import Protolude
+import Protolude hiding (cast)
 import Prelude (String)
 
 import Olifant.Parser (parse)
+import Olifant.Compiler (cast)
 
 import System.Environment (getArgs)
 import System.FilePath (replaceExtension)
@@ -42,4 +43,6 @@ main = getArgs >>= parseArgs
 
 -- | Compile a string and return result
 exec :: Text -> IO Text
-exec str = return $ show (parse str)
+exec str = do
+  let Right a = parse str
+  return $ show (map cast a)
