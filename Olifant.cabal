@@ -30,8 +30,6 @@ library
                      , mtl
                      , parsec
                      , protolude
-                     , tasty
-                     , tasty-hunit
                      , text
   default-language:    Haskell2010
   ghc-options:         -Wall -fwarn-tabs
