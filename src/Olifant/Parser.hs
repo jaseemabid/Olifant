@@ -41,9 +41,13 @@ number = Number <$> p
 bool :: Parsec Text st Calculus
 bool = Bool . (== "#t") <$> (try (string "#t") <|> string "#f")
 
+-- | Special symbols
+specials :: String
+specials = ['λ', '#', '\\', '/', ';', '\n']
+
 -- | Parse an identifier
 identifier :: Parsec Text st Text
-identifier = toS <$> many1 (satisfy $ \c -> isAlpha c && (c /= 'λ'))
+identifier = toS <$> many1 (satisfy $ \c -> isAlpha c && (c `notElem` specials))
 
 -- | Parse a word as an identifier
 symbol :: Parsec Text st Calculus
@@ -61,9 +65,9 @@ lambda = do
 bind :: Parsec Text st Calculus
 bind = do
     try $ string "let"
-    var <- squeeze (many1 space) identifier
+    var <- spaces *> identifier <* spaces
     char '='
-    val <- between (many1 space) spaces term
+    val <- many1 space *> term <* spaces
     return $ Let var val
 
 -- | A term, which is anything except lambda application
@@ -73,23 +77,15 @@ term = bind <|> lambda <|> symbol <|> bool <|> number
 -- | The lambda calculus grammar
 calculus :: Parsec Text st Calculus
 calculus = do
-    a <- term
-    -- Spaces mean zero or more; need at least one here
-    ahead <- optionMaybe (many1 space)
+    a <- spaces *> term  <* spaces
+    ahead <- optionMaybe $ char ';' <|> newline <|> (eof *> return ';')
+
     case ahead of
-        Nothing -> return a
-        Just _ -> do
-            b <- try calculus
-            return $ App a b
+      Just _ -> return a
+      _ -> calculus >>= \b -> return $  App a b
 
 parser :: Parsec Text st [Calculus]
-parser = calculus `sepBy` newline
-
--- * Custom parser combinators
-
--- | Squeeze a parser between something else and throw away the padding
-squeeze :: Stream s m t => ParsecT s u m close -> ParsecT s u m a -> ParsecT s u m a
-squeeze e = between e e
+parser = many1 calculus <* eof
 
 -- | Parse source and return AST
 --
