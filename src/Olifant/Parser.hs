@@ -92,9 +92,9 @@ parser = many1 calculus <* eof
 -- Converting ParseError to Text is losing information, but helps compose
 -- elsewhere. See `Test.exec` for example. This is alright because I'm not doing
 -- anything else with it right now.
-read :: Text -> Either Text [Calculus]
+read :: Text -> Either ParseError [Calculus]
 read "" = Right []
 read input =
     case parse parser "" (strip input) of
-        Left err -> Left $ toS $ P.show err
+        Left err -> Left err
         Right val -> Right val
