@@ -25,6 +25,14 @@ import Text.Parsec
 -- underlying monad m and return type a. Parsec is strict in the user state.
 --
 
+-- | Special symbols
+specials :: String
+specials = ['λ', '#', '\\', '/', ';', '\n']
+
+-- | Term separator
+sep :: Parsec Text st Char
+sep = char ';' <|> newline <|> (eof *> return ';')
+
 -- | Parse a signed integer
 number :: Parsec Text st Calculus
 number = Number <$> p
@@ -40,10 +48,6 @@ number = Number <$> p
 -- Try is required on the left side of <|> to prevent eagerly consuming #
 bool :: Parsec Text st Calculus
 bool = Bool . (== "#t") <$> (try (string "#t") <|> string "#f")
-
--- | Special symbols
-specials :: String
-specials = ['λ', '#', '\\', '/', ';', '\n']
 
 -- | Parse an identifier
 identifier :: Parsec Text st Text
@@ -74,18 +78,15 @@ bind = do
 term :: Parsec Text st Calculus
 term = bind <|> lambda <|> symbol <|> bool <|> number
 
--- | The lambda calculus grammar
+-- Calculus
 calculus :: Parsec Text st Calculus
 calculus = do
-    a <- spaces *> term  <* spaces
-    ahead <- optionMaybe $ char ';' <|> newline <|> (eof *> return ';')
-
-    case ahead of
-      Just _ -> return a
-      _ -> calculus >>= \b -> return $  App a b
+    a <- spaces *> term <* spaces
+    b <- optionMaybe $ spaces *> calculus <* spaces
+    return $ maybe a (App a) b
 
 parser :: Parsec Text st [Calculus]
-parser = many1 calculus <* eof
+parser = calculus `sepEndBy1` sep <* eof
 
 -- | Parse source and return AST
 --
