@@ -16,13 +16,13 @@ import Test.Tasty
 import Test.Tasty.HUnit
 
 tests :: TestTree
-tests = testGroup "Parser" [literals, symbols, lam, application, lett, ll]
+tests = testGroup "Parser" [literals, symbols, lam, application, lett, ll, v1]
 
 literals :: TestTree
 literals = testCase "Literal numbers and booleans" $ do
-    expect "42;" [Number 42]
+    expect "42" [Number 42]
     expect "-26" [Number (-26)]
-    expect "#f;" [Bool False]
+    expect "#f" [Bool False]
     expect "#t" [Bool True]
 
 symbols :: TestTree
@@ -71,6 +71,15 @@ ll = testCase "Handle sequences of expressions" $ do
     expect "1;1" [Number 1, Number 1]
     expect "1 1" [App (Number 1) (Number 1)]
     expect "1 2 3" [App (Number 1) (App (Number 2) (Number 3))]
+    expect "/x.x; 1" [Lam "x" (Var "x"), Number 1]
+
+v1 :: TestTree
+v1 = testCase "Version 1 test program" $
+    expect "let id = /x.x; id 42" [Let "id" id, App (Var "id") (Number 42)]
+  where
+    id = Lam "x" (Var "x")
+
+
 
 -- * Helper functions
 
