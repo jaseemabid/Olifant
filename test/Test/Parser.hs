@@ -79,9 +79,7 @@ v1 = testCase "Version 1 test program" $
   where
     id = Lam "x" (Var "x")
 
-
-
 -- * Helper functions
 
 expect :: Text -> [Calculus] -> Assertion
-expect text expectation = read text @?= Right expectation
+expect text expectation = parse text @?= Right expectation

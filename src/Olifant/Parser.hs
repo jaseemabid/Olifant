@@ -11,9 +11,8 @@ module Olifant.Parser where
 
 import Olifant.Calculus
 
-import Protolude (Text, toS)
-import qualified Prelude as P
-import Prelude hiding (read)
+import Protolude hiding ((<|>), try, bool)
+import Prelude (Char, String, read)
 
 import Data.Text (strip)
 import Data.Char (isAlpha)
@@ -40,7 +39,7 @@ number = Number <$> p
     p :: Parsec Text st Int
     p = try $ do
         sign <- option ' ' (char '-')
-        d <- P.read <$> many1 digit
+        d <- read <$> many1 digit
         return $ if sign == '-' then negate d else d
 
 -- | Parse scheme style boolean
@@ -93,9 +92,9 @@ parser = calculus `sepEndBy1` sep <* eof
 -- Converting ParseError to Text is losing information, but helps compose
 -- elsewhere. See `Test.exec` for example. This is alright because I'm not doing
 -- anything else with it right now.
-read :: Text -> Either ParseError [Calculus]
-read "" = Right []
-read input =
-    case parse parser "" (strip input) of
+parse :: Text -> Either ParseError [Calculus]
+parse "" = Right []
+parse input =
+    case runP parser ()  "" (strip input) of
         Left err -> Left err
         Right val -> Right val
