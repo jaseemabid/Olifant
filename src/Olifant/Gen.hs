@@ -301,15 +301,15 @@ step (Lam _t ref _) = throwError $ E $ "Higher order function" <> show ref
 -- * Code generation
 
 -- | Make an LLVM module from Core
-compile :: Progn -> Either Error Module
+compile :: Progn Tipe -> Either Error Module
 compile prog = do
   let computation = runCodegen (run prog)
   runIdentity $ runExceptT $ execStateT computation genState >>= return . mod
 
   where
     -- | Step through the AST and _throw_ away the results
-    run :: Progn -> Codegen ()
-    run = mapM_ gen
+    run :: Progn Tipe -> Codegen ()
+    run (Progn ps) = mapM_ gen ps
 
 -- | Generate native code with C++ FFI
 toLLVM :: Module -> IO Text
@@ -318,11 +318,11 @@ toLLVM modl =
         toS <$> withModuleFromAST context modl moduleLLVMAssembly
 
 -- | Pretty print LLVM AST with pure Haskell API
-pretty :: Progn -> Either Error Text
+pretty :: Progn Tipe -> Either Error Text
 pretty ast = toS . ppllvm <$> compile ast
 
 -- | Return compiled LLVM IR
-llvm :: Progn -> IO (Either Error Text)
+llvm :: Progn  Tipe -> IO (Either Error Text)
 llvm ast = case compile ast of
   Left err   -> return $ Left err
   Right mod' -> toLLVM mod' >>= return . Right

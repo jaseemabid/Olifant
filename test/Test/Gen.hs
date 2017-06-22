@@ -18,10 +18,10 @@ tests = testGroup "LLVM Code generator" [assign, use, fn, constfn]
 
 assign :: TestTree
 assign = testCase "Global variables" $
-    pretty [
+    pretty (Progn [
         Bind "x" (Lit TInt (LNumber 42))
       , Bind "y" (Lit TBool (LBool True))
-      ] @?= Right gen
+      ]) @?= Right gen
 
   where
     gen :: Text
@@ -35,8 +35,8 @@ use = testCase "Use global variable" $
 
   where
     -- | Sample program `x -> x`
-    progn :: Progn
-    progn = [Bind "f" f, Bind "g" g]
+    progn :: Progn Tipe
+    progn = Progn [Bind "f" f, Bind "g" g]
 
     f :: Core
     f = Lam (TArrow [TBool, TBool]) "a" $ Var TBool "b"
@@ -59,8 +59,8 @@ fn = testCase "Simple identity function" $
 
   where
     -- | Sample program `x -> x`
-    progn :: Progn
-    progn = [Bind "id" (Lam (TArrow [TInt, TInt]) "x" $ Var TInt "x")]
+    progn :: Progn Tipe
+    progn = Progn [Bind "id" (Lam (TArrow [TInt, TInt]) "x" $ Var TInt "x")]
 
     gen :: Text
     gen = "; ModuleID = 'calc'\n\n\
@@ -74,8 +74,8 @@ constfn = testCase "Const function returning false" $
 
   where
     -- | Sample program `x -> x`
-    progn :: Progn
-    progn = [Bind "sad" sad]
+    progn :: Progn Tipe
+    progn = Progn [Bind "sad" sad]
 
     sad :: Core
     sad = Lam (TArrow [TInt, TBool]) "y" (Lit TBool (LBool False))

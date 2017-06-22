@@ -41,10 +41,10 @@ data Expr a
     deriving (Eq, Functor, Foldable, Traversable)
 
 -- | Top level binding of a lambda calc expression to a name
-data Bind a = Bind Ref (Expr a)
+data Bind a = Bind Ref (Expr a) | Main (Expr a)
 
--- | A program is a list of typed bindings
-type Progn = [Bind Tipe]
+-- | A program is a list of bindings
+newtype Progn a = Progn [Bind a]
 
 -- | Untyped calculus
 type CoreUT = Expr ()
@@ -90,8 +90,17 @@ instance Show Core where
 instance Show CoreUT where
     show = render . p
 
--- instance Show Progn where
---    show = render . p
+instance Show (Bind ()) where
+    show = render . p
+
+instance Show (Bind Tipe) where
+    show = render . p
+
+instance Show (Progn ()) where
+  show (Progn ps) = unlines (map show ps)
+
+instance Show (Progn Tipe) where
+  show (Progn ps) = unlines (map show ps)
 
 -- * Pretty printer
 --
@@ -129,10 +138,13 @@ instance D (Expr Tipe) where
     p (Lam t (Ref a) b) = char 'λ' <> text (toS a) <> p t <> char '.' <> p b
 
 instance D (Bind ()) where
-    p (Bind r val) = p r <> p val
+    p (Bind r val) = text "let" <+> p r <+> char '=' <+> p val
+    p (Main v)     = p v
 
+-- [TODO] - Add type to pretty printed version of let binding
 instance D (Bind Tipe) where
-    p (Bind r val) = p r <> p val
+    p (Bind r val) = text "let" <+> p r <+> char '=' <+> p val
+    p (Main v)     = p v
 
 instance D a => D [a] where
     p xs = vcat $ map p xs
