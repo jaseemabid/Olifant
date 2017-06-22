@@ -309,7 +309,7 @@ compile prog = do
   where
     -- | Step through the AST and _throw_ away the results
     run :: Progn -> Codegen ()
-    run (Progn ps) = mapM_ gen ps
+    run = mapM_ gen
 
 -- | Generate native code with C++ FFI
 toLLVM :: Module -> IO Text

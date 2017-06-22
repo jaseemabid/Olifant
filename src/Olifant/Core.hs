@@ -44,7 +44,7 @@ data Expr a
 data Bind a = Bind Ref (Expr a)
 
 -- | A program is a list of typed bindings
-newtype Progn = Progn [Bind Tipe]
+type Progn = [Bind Tipe]
 
 -- | Untyped calculus
 type CoreUT = Expr ()
