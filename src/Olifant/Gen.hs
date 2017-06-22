@@ -3,34 +3,34 @@ Module      : Olifant.Gen
 Description : LLVM Code generator for Core
 -}
 
-{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE DuplicateRecordFields      #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings          #-}
 
 module Olifant.Gen where
 
-import           Olifant.Core
+import Olifant.Core
 
-import qualified Prelude as P
-import           Protolude hiding (Type, mod, local)
+import qualified Prelude   as P
+import           Protolude hiding (Type, local, mod)
 
-import           Data.ByteString.Short (toShort)
-import           LLVM.AST
-import           LLVM.AST.AddrSpace
-import           LLVM.AST.Attribute
-import           LLVM.AST.CallingConvention
-import           LLVM.AST.Constant
-import           LLVM.AST.Type
-import           LLVM.AST.Global
-import           LLVM.Context (withContext)
-import           LLVM.Module (moduleLLVMAssembly, withModuleFromAST)
-import           LLVM.Pretty (ppllvm)
+import Data.ByteString.Short      (toShort)
+import LLVM.AST
+import LLVM.AST.AddrSpace
+import LLVM.AST.Attribute
+import LLVM.AST.CallingConvention
+import LLVM.AST.Constant
+import LLVM.AST.Global
+import LLVM.AST.Type
+import LLVM.Context               (withContext)
+import LLVM.Module                (moduleLLVMAssembly, withModuleFromAST)
+import LLVM.Pretty                (ppllvm)
 
 -- | State of the complete program
 data GenState = GenState
-    { blocks   :: [BlockState]  -- Blocks, ordered and named
-    , counter  :: Int           -- Number of unnamed variables
-    , mod      :: Module        -- The LLVM Module pointer
+    { blocks  :: [BlockState]  -- Blocks, ordered and named
+    , counter :: Int           -- Number of unnamed variables
+    , mod     :: Module        -- The LLVM Module pointer
     } deriving (Show)
 
 -- | State of a single block
@@ -44,7 +44,7 @@ data GenState = GenState
 data BlockState = BlockState
   { bname :: Text                     -- Name of the block
   , stack :: [Named Instruction]     -- List of operations
-  , term :: Maybe (Named Terminator) -- Block terminator
+  , term  :: Maybe (Named Terminator) -- Block terminator
   } deriving (Show)
 
 -- | Errors raised by the code generator
@@ -100,7 +100,7 @@ push ins = do
       -- Replace first block with new block
       replace :: [BlockState] -> BlockState -> [BlockState]
       replace (_:xs) newBlock = newBlock:xs
-      replace _ _ = notImplemented
+      replace _ _             = notImplemented
 
 -- | Name an instruction and add to stack.
 --
@@ -152,7 +152,7 @@ load t var = unnamed t $ Load False (pointer var) Nothing 0 []
 
 -- | Make an `alloca` instruction
 alloca :: Tipe -> Maybe Text -> Codegen Operand
-alloca t Nothing = unnamed t $ Alloca (native t) Nothing 0 []
+alloca t Nothing    = unnamed t $ Alloca (native t) Nothing 0 []
 alloca t (Just ref) = named t ref $ Alloca (native t) Nothing 0 []
 
 -- | Call a function `fn` with `arg`
@@ -265,7 +265,7 @@ gen (Bind n (Lam t arg body)) = do
     params :: [(Type, Name)]
     params = case t of
       (TArrow ts) -> [(native t', lname $ rname arg) | t' <- P.init ts]
-      _ -> []
+      _           -> []
 
 gen (Bind r App{}) = throwError $ E $ "Top level function call " <> rname r
 
@@ -324,5 +324,5 @@ pretty ast = toS . ppllvm <$> compile ast
 -- | Return compiled LLVM IR
 llvm :: Progn -> IO (Either Error Text)
 llvm ast = case compile ast of
-  Left err -> return $ Left err
+  Left err   -> return $ Left err
   Right mod' -> toLLVM mod' >>= return . Right

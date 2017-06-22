@@ -2,16 +2,16 @@
 
 module Test.Compiler where
 
-import           Protolude hiding (cast, head)
-import           Prelude (head)
+import Prelude   (head)
+import Protolude hiding (cast, head)
 
 import qualified Olifant.Calculus as CL
 import           Olifant.Compiler (cast, free)
 import           Olifant.Core
-import           Olifant.Parser (parse)
+import           Olifant.Parser   (parse)
 
-import           Test.Tasty
-import           Test.Tasty.HUnit
+import Test.Tasty
+import Test.Tasty.HUnit
 
 tests :: TestTree
 tests = testGroup "Compiler" [translate, zombie]

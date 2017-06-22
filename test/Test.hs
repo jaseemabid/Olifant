@@ -2,12 +2,12 @@
 
 module Main where
 
-import           Protolude
-import           Test.Tasty
+import Protolude
+import Test.Tasty
 
 import qualified Test.Compiler as TC
-import qualified Test.Gen as TG
-import qualified Test.Parser as TP
+import qualified Test.Gen      as TG
+import qualified Test.Parser   as TP
 
 main :: IO ()
 main = defaultMain tests

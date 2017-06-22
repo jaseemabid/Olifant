@@ -4,18 +4,18 @@
 --
 -----------------------------------------------------------------------------
 
--- | It's ok to throw away results of do notation in a parser. Disable the warning
+-- It's ok to throw away results of do notation in a parser. Disable the warning
 {-# OPTIONS_GHC -fno-warn-unused-do-bind #-}
 
 module Olifant.Parser where
 
 import Olifant.Calculus
 
-import Protolude hiding ((<|>), try, bool)
-import Prelude (Char, String, read)
+import Prelude   (Char, String, read)
+import Protolude hiding (bool, try, (<|>))
 
-import Data.Text (strip)
-import Data.Char (isAlpha)
+import Data.Char   (isAlpha)
+import Data.Text   (strip)
 import Text.Parsec
 
 -- ParserT monad transformer and Parser type
@@ -96,5 +96,5 @@ parse :: Text -> Either ParseError [Calculus]
 parse "" = Right []
 parse input =
     case runP parser ()  "" (strip input) of
-        Left err -> Left err
+        Left err  -> Left err
         Right val -> Right val

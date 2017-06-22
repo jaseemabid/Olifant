@@ -2,20 +2,20 @@
 Module      : Main
 Description : The CLI interface to Olifant
 -}
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Main where
 
+import Prelude   (String)
 import Protolude hiding (cast)
-import Prelude (String)
 
-import Olifant.Parser (parse)
 import Olifant.Compiler (cast)
+import Olifant.Parser   (parse)
 
 import System.Environment (getArgs)
-import System.FilePath (replaceExtension)
-import System.IO (hReady)
+import System.FilePath    (replaceExtension)
+import System.IO          (hReady)
 
 usage :: IO ()
 usage = putStrLn ("Usage: olifant [-vh] [file] " :: Text)

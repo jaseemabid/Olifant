@@ -6,8 +6,8 @@ module Olifant.Compiler where
 
 import Protolude hiding (cast)
 
-import Olifant.Core
 import qualified Olifant.Calculus as C
+import           Olifant.Core
 
 -- | Quickly translate calculus into untyped core
 --
@@ -16,12 +16,12 @@ import qualified Olifant.Calculus as C
 -- directly.
 --
 cast :: C.Calculus -> CoreUT
-cast (C.Var a) = Var unit $ Ref a
-cast (C.Number n) = Lit unit (LNumber n)
-cast (C.Bool b) = Lit unit (LBool b)
+cast (C.Var a)       = Var unit $ Ref a
+cast (C.Number n)    = Lit unit (LNumber n)
+cast (C.Bool b)      = Lit unit (LBool b)
 cast (C.App fn arg') = App unit (cast fn) (cast arg')
-cast (C.Lam n b) = Lam unit (Ref n) (cast b)
-cast (C.Let _ _) = error "Cannot translate let expression to core"
+cast (C.Lam n b)     = Lam unit (Ref n) (cast b)
+cast (C.Let _ _)     = error "Cannot translate let expression to core"
 
 -- |  Compile a series of Calculus expressions into untyped core bindings
 --
@@ -36,11 +36,11 @@ free core = free' core []
   where
     free' :: Expr a -> [Ref] -> [Ref]
 
-    free' (Var _ x) acc = if x `elem` acc then [] else [x]
+    free' (Var _ x) acc          = if x `elem` acc then [] else [x]
 
-    free' Lit{} _ = []
+    free' Lit{} _                = []
 
-    free' (App _t f exp') acc = free' f acc ++ free' exp' acc
+    free' (App _t f exp') acc    = free' f acc ++ free' exp' acc
 
     -- [todo] - Evaluate body with arg as well
     free' (Lam _fn arg body) acc = free' body (arg: acc)

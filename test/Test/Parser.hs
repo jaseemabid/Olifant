@@ -9,8 +9,8 @@ module Test.Parser where
 
 import Protolude hiding (bool)
 
-import Olifant.Parser
 import Olifant.Calculus
+import Olifant.Parser
 
 import Test.Tasty
 import Test.Tasty.HUnit

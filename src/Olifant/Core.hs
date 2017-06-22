@@ -3,18 +3,18 @@ Module      : Olifant.Core
 Description : Core data structures of the compiler
 -}
 
-{-# LANGUAGE DeriveFoldable #-}
-{-# LANGUAGE DeriveFunctor #-}
-{-# LANGUAGE DeriveTraversable #-}
-{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE DeriveFoldable       #-}
+{-# LANGUAGE DeriveFunctor        #-}
+{-# LANGUAGE DeriveTraversable    #-}
+{-# LANGUAGE FlexibleInstances    #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 
 module Olifant.Core where
 
-import Protolude hiding ((<>), show)
-import Prelude (show, last, init)
+import Data.Foldable    (foldr1)
 import Data.String
-import Data.Foldable (foldr1)
+import Prelude          (init, last, show)
+import Protolude        hiding (show, (<>))
 import Text.PrettyPrint
 
 --  - https://ghc.haskell.org/trac/ghc/wiki/Commentary/Compiler/CoreSynType
@@ -57,12 +57,12 @@ type Core = Expr Tipe
 -- | Return type of a type
 ret :: Tipe -> Tipe
 ret (TArrow ts) = last ts
-ret t = t
+ret t           = t
 
 -- | Arguments of a type
 args :: Tipe -> Tipe
 args (TArrow ts) = TArrow $ init ts
-args t = t
+args t           = t
 
 -- * Aliases
 
@@ -108,17 +108,17 @@ instance D Ref where
     p (Ref r) = text $ toS r
 
 instance D Tipe where
-    p TInt = "i"
-    p TBool = "b"
+    p TInt        = "i"
+    p TBool       = "b"
     p (TArrow ts) = foldr1 (\a b -> a <+> arrow <+> b) $ map p ts
 
 instance D (Expr ()) where
-    p (Var _ (Ref n)) = text $ toS n
-    p (Lit _ (LNumber n)) = int n
-    p (Lit _ (LBool True)) = "#t"
+    p (Var _ (Ref n))       = text $ toS n
+    p (Lit _ (LNumber n))   = int n
+    p (Lit _ (LBool True))  = "#t"
     p (Lit _ (LBool False)) = "#t"
-    p (App _ a b) = p a <+> p b
-    p (Lam _ (Ref a) b) = char 'λ' <> text (toS a) <> char '.' <> p b
+    p (App _ a b)           = p a <+> p b
+    p (Lam _ (Ref a) b)     = char 'λ' <> text (toS a) <> char '.' <> p b
 
 instance D (Expr Tipe) where
     p (Var t (Ref n)) = text (toS n) <+> colon <+> p t
