@@ -30,17 +30,14 @@ translate = testCase "Trivial function translation" $ do
     calc = CL.Lam "x" (CL.Lam "y" (CL.Number 42))
 
     core :: CoreUT
-    core = Lam unit x (Lam unit y (Lit unit (LNumber 42)))
-      where
-        x = Ref "x"
-        y = Ref "y"
+    core = Lam unit "x" (Lam unit "y" (Lit unit (LNumber 42)))
 
 zombie :: TestTree
 zombie = testCase "Find undefined variables" $ do
-    free (cast $ parse1 "/x.p")   @?= [Ref "p"]
+    free (cast $ parse1 "/x.p")    @?= ["p"]
     free (cast $ parse1 "/x.x")    @?= []
     free (cast $ parse1 "/x.42")   @?= []
-    free (cast $ parse1 "/x.f 42") @?= [Ref "f"]
+    free (cast $ parse1 "/x.f 42") @?= ["f"]
     free (cast $ parse1 "/x.x 42") @?= []
     free (cast $ parse1 "/x.42")   @?= []
 

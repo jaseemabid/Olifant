@@ -11,6 +11,7 @@ module Olifant.Core where
 
 import Protolude
 import Prelude (last, init)
+import Data.String
 
 --  - https://ghc.haskell.org/trac/ghc/wiki/Commentary/Compiler/CoreSynType
 --  - http://blog.ezyang.com/2013/05/the-ast-typing-problem/
@@ -20,6 +21,9 @@ import Prelude (last, init)
 
 newtype Ref = Ref {rname :: Text}
     deriving (Eq, Ord, Show)
+
+instance IsString Ref where
+    fromString x = Ref $ toS x
 
 data Literal = LNumber Int | LBool Bool
     deriving (Eq, Show)
