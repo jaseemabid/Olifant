@@ -201,10 +201,10 @@ native (TArrow types) = FunctionType {
 --
 -- > i64 f -> i64* f
 pointer :: Operand -> Operand
-pointer (LocalReference t name') = LocalReference p name'
+pointer (LocalReference t name') = LocalReference pt name'
   where
-    p :: Type
-    p = PointerType t $ AddrSpace 0
+    pt :: Type
+    pt = PointerType t $ AddrSpace 0
 pointer x = error $ "Cannot make a pointer for " <> show x
 
 -- | Make an operand out of a global function
@@ -309,7 +309,7 @@ compile prog = do
   where
     -- | Step through the AST and _throw_ away the results
     run :: Progn -> Codegen ()
-    run = mapM_ gen
+    run (Progn ps) = mapM_ gen ps
 
 -- | Generate native code with C++ FFI
 toLLVM :: Module -> IO Text
