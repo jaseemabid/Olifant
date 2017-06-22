@@ -21,7 +21,6 @@ library
                      , Olifant.Core
                      , Olifant.Gen
                      , Olifant.Parser
-                     , Olifant.Pretty
   build-depends:       base >= 4.7 && < 5
                      , bytestring
                      , containers
