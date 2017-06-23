@@ -2,33 +2,49 @@
 Module      : Olifant.Compiler
 Description : Compile Calculus to Core
 -}
-module Olifant.Compiler where
 
-import Protolude hiding (cast)
+{-# LANGUAGE OverloadedStrings #-}
+
+module Olifant.Compiler where
 
 import qualified Olifant.Calculus as C
 import           Olifant.Core
+import           Prelude          (String)
+import           Protolude
 
--- | Quickly translate calculus into untyped core
---
--- This is a dumb stupid pass which is making me reconsider having the Calculus
--- type at all. Maybe I can just avoid Calculus type and parse into CoreUT
--- directly.
---
-cast :: C.Calculus -> CoreUT
-cast (C.Var a)       = Var unit $ Ref a
-cast (C.Number n)    = Lit unit (LNumber n)
-cast (C.Bool b)      = Lit unit (LBool b)
-cast (C.App fn arg') = App unit (cast fn) (cast arg')
-cast (C.Lam n b)     = Lam unit (Ref n) (cast b)
-cast (C.Let _ _)     = error "Cannot translate let expression to core"
+-- Compiler is an Olifant monad with no state
+type Compiler = Olifant ()
 
--- |  Compile a series of Calculus expressions into untyped core bindings
+compile :: [C.Calculus] -> Either Error [Bind ()]
+compile ls = do
+    let computation = runM $ translate ls
+    runIdentity $ runExceptT $ evalStateT computation ()
+
+-- | Compile a series of Calculus expressions into untyped core bindings
 --
--- Consider the simplest well formed calculus for now. Only top level functions
--- and variables. Last one is an expression which will be wrapped into a main.
-rename :: [C.Calculus] -> [Bind ()]
-rename = undefined
+-- Input program should be a series of let bindings and one expression in the
+-- end.
+--
+translate :: [C.Calculus] -> Compiler [Bind ()]
+translate [main] = t1 main >>= \m -> return [Main m]
+translate (C.Let var val:xs) = do
+  val' <- t1 val
+  rest <- translate xs
+  return $ Bind (Ref var) val': rest
+
+translate x = throwError $ SyntaxError $ toS (show x :: String)
+
+-- | Translate a single calculus expression into untyped core
+--
+-- This function is partial and should not be used directly.
+--
+t1 :: C.Calculus -> Compiler CoreUT
+t1 (C.Var a)      = return $ Var unit $ Ref a
+t1 (C.Number n)   = return $ Lit unit (LNumber n)
+t1 (C.Bool b)     = return $ Lit unit (LBool b)
+t1 (C.App fn arg) = App unit <$> t1 fn <*> t1 arg
+t1 (C.Lam n b)    = Lam unit (Ref n) <$> t1 b
+t1 (C.Let _ _)    = throwError $ SyntaxError "Invalid let expression "
 
 -- | Find free variables in an expression; typed or untyped
 free :: Expr a -> [Ref]

@@ -10,8 +10,8 @@ module Main where
 import Prelude   (String)
 import Protolude hiding (cast)
 
-import Olifant.Compiler (cast)
-import Olifant.Parser   (parse)
+import Olifant.Compiler
+import Olifant.Parser
 
 import System.Environment (getArgs)
 import System.FilePath    (replaceExtension)
@@ -45,4 +45,6 @@ main = getArgs >>= parseArgs
 exec :: Text -> IO Text
 exec str = do
   let Right a = parse str
-  return $ show (map cast a)
+  case compile a of
+      Right ut -> return $ show ut
+      Left e   -> return $ show e
