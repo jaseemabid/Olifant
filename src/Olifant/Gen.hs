@@ -4,7 +4,6 @@ Description : LLVM Code generator for Core
 -}
 
 {-# LANGUAGE DuplicateRecordFields      #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings          #-}
 
 module Olifant.Gen where
@@ -47,18 +46,12 @@ data BlockState = BlockState
   , term  :: Maybe (Named Terminator) -- Block terminator
   } deriving (Show)
 
--- | Errors raised by the code generator
+-- | Codegen monad is Olifant monad with state specialized to `GenState`
 --
--- These errors are not expected to be recoverable. A valid type safe `Progn`
+-- Errors are not expected to be recoverable. A valid type safe `Progn`
 -- shouldn't raise an error and there is nothing much to do if the input is
 -- wrong.
-newtype Error = E Text
-  deriving (Eq, Show)
-
--- | Codegen state monad
-newtype Codegen a = Codegen
-    { runCodegen :: StateT GenState (ExceptT Error Identity) a
-    } deriving (Functor, Applicative, Monad, MonadError Error,  MonadState GenState)
+type Codegen a = Olifant GenState a
 
 -- | Default `GenState`
 genState :: GenState
@@ -220,7 +213,7 @@ externf t n = ConstantOperand $ global t n
 gen :: Bind Tipe -> Codegen Operand
 
 -- | A top level variable could be an alias, but its an error for now
-gen (Bind _ (Var _ ref)) = throwError $ E $ "Top level alias " <> rname ref
+gen (Bind _ (Var _ ref)) = err $ "Top level alias " <> rname ref
 
 -- | Add a constant global variable
 gen (Bind (Ref name') lit@(Lit t _val)) = do
@@ -267,7 +260,7 @@ gen (Bind n (Lam t arg body)) = do
       (TArrow ts) -> [(native t', lname $ rname arg) | t' <- P.init ts]
       _           -> []
 
-gen (Bind r App{}) = throwError $ E $ "Top level function call " <> rname r
+gen (Bind r App{}) = err $ "Top level function call " <> rname r
 
 -- | Generate code for an expression not at the top level
 --
@@ -293,17 +286,17 @@ step (App _t (Lam t (Ref n) _body) val) = do
     call (ret t) (externf t n) arg'
 
 -- | Apply non function - throw an error
-step (App _t a _) = throwError $ E $ "Applied non function " <> show a
+step (App _t a _) = err $ "Applied non function " <> show a
 
 -- \ Higher order function - throw an error
-step (Lam _t ref _) = throwError $ E $ "Higher order function" <> show ref
+step (Lam _t ref _) = err $ "Higher order function" <> show ref
 
 -- * Code generation
 
 -- | Make an LLVM module from Core
 compile :: Progn Tipe -> Either Error Module
 compile prog = do
-  let computation = runCodegen (run prog)
+  let computation = runM (run prog)
   runIdentity $ runExceptT $ execStateT computation genState >>= return . mod
 
   where
@@ -324,5 +317,8 @@ pretty ast = toS . ppllvm <$> compile ast
 -- | Return compiled LLVM IR
 llvm :: Progn  Tipe -> IO (Either Error Text)
 llvm ast = case compile ast of
-  Left err   -> return $ Left err
+  Left e     -> return $ Left e
   Right mod' -> toLLVM mod' >>= return . Right
+
+err :: Text -> Codegen a
+err = throwError . GenError

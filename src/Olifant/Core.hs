@@ -3,11 +3,12 @@ Module      : Olifant.Core
 Description : Core data structures of the compiler
 -}
 
-{-# LANGUAGE DeriveFoldable       #-}
-{-# LANGUAGE DeriveFunctor        #-}
-{-# LANGUAGE DeriveTraversable    #-}
-{-# LANGUAGE FlexibleInstances    #-}
-{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE DeriveFoldable             #-}
+{-# LANGUAGE DeriveFunctor              #-}
+{-# LANGUAGE DeriveTraversable          #-}
+{-# LANGUAGE FlexibleInstances          #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE TypeSynonymInstances       #-}
 
 module Olifant.Core where
 
@@ -69,6 +70,20 @@ args t           = t
 unit :: ()
 unit = ()
 
+-- * Error handling and state monad
+
+-- | Errors raised by the compiler
+--
+data Error = GenError Text | SyntaxError Text | Panic Text
+    deriving (Eq, Show)
+
+-- Olifant Monad
+--
+-- Olifant monad is a State Error IO transformer with Error type fixed to Error.
+newtype Olifant s a = Olifant
+    { runM :: StateT s (ExceptT Error Identity) a
+    } deriving (Functor, Applicative, Monad, MonadError Error,  MonadState s)
+
 -- * Instance declarations
 
 instance IsString Ref where
@@ -76,7 +91,6 @@ instance IsString Ref where
 
 -- Ed Kmett says I should not use UndecidableInstances to avoid this
 -- boilerplate, so I'm gonna do that. `D a => Show a` looked so promising :/
---
 
 instance Show Ref where
     show (Ref a) = show a
