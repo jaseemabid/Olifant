@@ -16,8 +16,8 @@ import Data.Foldable    (foldr1)
 import Data.String
 import Prelude          (init, last, show)
 import Protolude        hiding (show, (<>))
+import Text.Parsec      (ParseError)
 import Text.PrettyPrint
-import Text.Parsec (ParseError)
 
 --  - https://ghc.haskell.org/trac/ghc/wiki/Commentary/Compiler/CoreSynType
 --  - http://blog.ezyang.com/2013/05/the-ast-typing-problem/
@@ -80,11 +80,18 @@ data Error = GenError Text | SyntaxError Text | ParseError ParseError | Panic Te
 
 -- Olifant Monad
 --
--- Olifant monad is a State Error IO transformer with Error type fixed to Error.i
--- [TODO] - Replace with `Except Error`
+-- A `State + Error + IO` transformer with Error type fixed to `Error`
 newtype Olifant s a = Olifant
-    { runM :: StateT s (ExceptT Error Identity) a
-    } deriving (Functor, Applicative, Monad, MonadError Error,  MonadState s)
+    { runOlifant :: StateT s (Except Error) a
+    } deriving (Functor, Applicative, Monad, MonadError Error, MonadState s)
+
+-- | Run a computation in olifant monad with some state and return the result
+evalM :: Olifant s a -> s -> Either Error a
+evalM c s = runIdentity $ runExceptT $ evalStateT (runOlifant c) s
+
+-- | Run a computation in olifant monad with some state and return new state
+execM :: Olifant s a -> s -> Either Error s
+execM c s = runIdentity $ runExceptT $ execStateT (runOlifant c) s
 
 -- * Instance declarations
 

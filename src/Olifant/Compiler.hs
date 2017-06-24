@@ -12,13 +12,14 @@ import           Olifant.Core
 import           Prelude          (String)
 import           Protolude
 
--- Compiler is an Olifant monad with no state
-type Compiler = Olifant ()
+-- Compiler is an Olifant monad with state set to `Env`
+type Compiler a = Olifant Env a
+
+-- Env is a simple list of references
+type Env = [Ref]
 
 compile :: [C.Calculus] -> Either Error [Bind ()]
-compile ls = do
-    let computation = runM $ translate ls
-    runIdentity $ runExceptT $ evalStateT computation ()
+compile ls = evalM (translate ls) []
 
 -- | Compile a series of Calculus expressions into untyped core bindings
 --

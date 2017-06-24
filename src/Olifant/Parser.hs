@@ -10,7 +10,7 @@
 module Olifant.Parser where
 
 import Olifant.Calculus
-import Olifant.Core (Error(..))
+import Olifant.Core     (Error (..))
 
 import Prelude   (Char, String, read)
 import Protolude hiding (bool, try, (<|>))

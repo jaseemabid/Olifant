@@ -3,8 +3,8 @@ Module      : Olifant.Gen
 Description : LLVM Code generator for Core
 -}
 
-{-# LANGUAGE DuplicateRecordFields      #-}
-{-# LANGUAGE OverloadedStrings          #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE OverloadedStrings     #-}
 
 module Olifant.Gen where
 
@@ -295,10 +295,7 @@ step (Lam _t ref _) = err $ "Higher order function" <> show ref
 
 -- | Make an LLVM module from Core
 compile :: Progn Tipe -> Either Error Module
-compile prog = do
-  let computation = runM (run prog)
-  runIdentity $ runExceptT $ execStateT computation genState >>= return . mod
-
+compile prog = execM (run prog) genState >>= return . mod
   where
     -- | Step through the AST and _throw_ away the results
     run :: Progn Tipe -> Codegen ()
