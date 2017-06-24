@@ -36,9 +36,11 @@ t2 = testCase "Trivial function translation" $ do
 zombie :: TestTree
 zombie = testCase "Find undefined variables" $ do
     t "/x.p"    @?= Right ["p"]
+    t "let p = 1; /x.p"    @?= Right []
     t "/x.x"    @?= Right []
     t "/x.42"   @?= Right []
     t "/x.f 42" @?= Right ["f"]
+    t "let f = id; /x.f 42" @?= Right ["id"]
     t "/x.x 42" @?= Right []
     t "/x.42"   @?= Right []
   where
