@@ -2,11 +2,10 @@
 
 module Test.Compiler where
 
-import Prelude   (head)
-import Protolude hiding (cast, head)
+import Protolude
 
 import qualified Olifant.Calculus as CL
-import           Olifant.Compiler (cast, free)
+import           Olifant.Compiler
 import           Olifant.Core
 import           Olifant.Parser   (parse)
 
@@ -14,37 +13,36 @@ import Test.Tasty
 import Test.Tasty.HUnit
 
 tests :: TestTree
-tests = testGroup "Compiler" [translate, zombie]
+tests = testGroup "Compiler" [t2, zombie]
 
 -- |  Compile calculus to core
-translate :: TestTree
-translate = testCase "Trivial function translation" $ do
+t2 :: TestTree
+t2 = testCase "Trivial function translation" $ do
     parse source @?= Right [calc]
-    cast calc @?= core
+    compile [calc] @?= Right core
 
   where
     source :: Text
-    source = "/x./y.42"
+    source = "let c = /x.1; cc 42"
 
     calc :: CL.Calculus
-    calc = CL.Lam "x" (CL.Lam "y" (CL.Number 42))
+    calc = CL.Lam "x" (CL.Number 42)
 
-    core :: CoreUT
-    core = Lam unit "x" (Lam unit "y" (Lit unit (LNumber 42)))
+    core :: [Bind ()]
+    core = [Bind "c" $ Lam unit "x" (Lit unit (LNumber 42))
+          , Main $ App unit (Var unit "cc") (Lit unit (LNumber 42))]
 
 zombie :: TestTree
 zombie = testCase "Find undefined variables" $ do
-    free (cast $ parse1 "/x.p")    @?= ["p"]
-    free (cast $ parse1 "/x.x")    @?= []
-    free (cast $ parse1 "/x.42")   @?= []
-    free (cast $ parse1 "/x.f 42") @?= ["f"]
-    free (cast $ parse1 "/x.x 42") @?= []
-    free (cast $ parse1 "/x.42")   @?= []
-
--- * Helpers
-
-parse1 :: Text -> CL.Calculus
-parse1 t = head $ fromRight $ parse t
+    t "/x.p"    @?= Right ["p"]
+    t "/x.x"    @?= Right []
+    t "/x.42"   @?= Right []
+    t "/x.f 42" @?= Right ["f"]
+    t "/x.x 42" @?= Right []
+    t "/x.42"   @?= Right []
+  where
+    t :: Text -> Either Error [Ref]
+    t e = evalM (translate (fromRight $ parse e) >>= free) []
 
 fromRight :: Either a b -> b
 fromRight (Right a) = a

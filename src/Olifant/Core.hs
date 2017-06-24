@@ -44,6 +44,7 @@ data Expr a
 
 -- | Top level binding of a lambda calc expression to a name
 data Bind a = Bind Ref (Expr a) | Main (Expr a)
+  deriving (Eq)
 
 -- | A program is a list of bindings
 newtype Progn a = Progn [Bind a]

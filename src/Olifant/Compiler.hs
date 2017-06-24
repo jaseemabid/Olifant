@@ -18,6 +18,7 @@ type Compiler a = Olifant Env a
 -- Env is a simple list of references
 type Env = [Ref]
 
+-- | Top level API of the module
 compile :: [C.Calculus] -> Either Error [Bind ()]
 compile ls = evalM (translate ls) []
 
@@ -25,7 +26,6 @@ compile ls = evalM (translate ls) []
 --
 -- Input program should be a series of let bindings and one expression in the
 -- end.
---
 translate :: [C.Calculus] -> Compiler [Bind ()]
 translate [main] = t1 main >>= \m -> return [Main m]
 translate (C.Let var val:xs) = do
@@ -47,17 +47,16 @@ t1 (C.App fn arg) = App unit <$> t1 fn <*> t1 arg
 t1 (C.Lam n b)    = Lam unit (Ref n) <$> t1 b
 t1 (C.Let _ _)    = throwError $ SyntaxError "Invalid let expression "
 
--- | Find free variables in an expression; typed or untyped
-free :: Expr a -> [Ref]
-free core = free' core []
+-- | Find free variables; typed or untyped core
+free :: [Bind ()] -> Compiler [Ref]
+free [] = return []
+free (b:bs) = case b of
+    Bind ref val -> put [ref] >> return (++) <*> f val <*> free bs
+    Main val     -> return (++) <*> f val <*> free bs
+
   where
-    free' :: Expr a -> [Ref] -> [Ref]
-
-    free' (Var _ x) acc          = if x `elem` acc then [] else [x]
-
-    free' Lit{} _                = []
-
-    free' (App _t f exp') acc    = free' f acc ++ free' exp' acc
-
-    -- [todo] - Evaluate body with arg as well
-    free' (Lam _fn arg body) acc = free' body (arg: acc)
+    f :: Expr a -> Compiler [Ref]
+    f (Var _ x) = get >>= \acc -> return $ if x `elem` acc then [] else [x]
+    f Lit{} = return []
+    f (App _t fn exp') = return (++) <*> f fn <*> f exp'
+    f (Lam _fn arg body) = modify (\s -> arg: s) >> f body
