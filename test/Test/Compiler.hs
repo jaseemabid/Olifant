@@ -18,19 +18,20 @@ tests = testGroup "Compiler" [t2, zombie]
 -- |  Compile calculus to core
 t2 :: TestTree
 t2 = testCase "Trivial function translation" $ do
-    parse source @?= Right [calc]
-    compile [calc] @?= Right core
+    parse source @?= Right calc
+    compile calc @?= Right core
 
   where
     source :: Text
-    source = "let c = /x.1; cc 42"
+    source = "let c = /x.1; c 42"
 
-    calc :: CL.Calculus
-    calc = CL.Lam "x" (CL.Number 42)
+    calc :: [CL.Calculus]
+    calc = [CL.Let "c" (CL.Lam "x" (CL.Number 1))
+          , CL.App (CL.Var "c") (CL.Number 42)]
 
     core :: [Bind ()]
-    core = [Bind "c" $ Lam unit "x" (Lit unit (LNumber 42))
-          , Main $ App unit (Var unit "cc") (Lit unit (LNumber 42))]
+    core = [Bind "c" $ Lam unit "x" (Lit unit (LNumber 1))
+          , Main $ App unit (Var unit "c") (Lit unit (LNumber 42))]
 
 zombie :: TestTree
 zombie = testCase "Find undefined variables" $ do
