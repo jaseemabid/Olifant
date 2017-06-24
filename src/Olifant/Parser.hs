@@ -10,6 +10,7 @@
 module Olifant.Parser where
 
 import Olifant.Calculus
+import Olifant.Core (Error(..))
 
 import Prelude   (Char, String, read)
 import Protolude hiding (bool, try, (<|>))
@@ -92,9 +93,9 @@ parser = calculus `sepEndBy1` sep <* eof
 -- Converting ParseError to Text is losing information, but helps compose
 -- elsewhere. See `Test.exec` for example. This is alright because I'm not doing
 -- anything else with it right now.
-parse :: Text -> Either ParseError [Calculus]
+parse :: Text -> Either Error [Calculus]
 parse "" = Right []
 parse input =
     case runP parser ()  "" (strip input) of
-        Left err  -> Left err
+        Left err  -> Left $ ParseError err
         Right val -> Right val

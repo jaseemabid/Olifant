@@ -17,6 +17,7 @@ import Data.String
 import Prelude          (init, last, show)
 import Protolude        hiding (show, (<>))
 import Text.PrettyPrint
+import Text.Parsec (ParseError)
 
 --  - https://ghc.haskell.org/trac/ghc/wiki/Commentary/Compiler/CoreSynType
 --  - http://blog.ezyang.com/2013/05/the-ast-typing-problem/
@@ -74,12 +75,13 @@ unit = ()
 
 -- | Errors raised by the compiler
 --
-data Error = GenError Text | SyntaxError Text | Panic Text
+data Error = GenError Text | SyntaxError Text | ParseError ParseError | Panic Text
     deriving (Eq, Show)
 
 -- Olifant Monad
 --
--- Olifant monad is a State Error IO transformer with Error type fixed to Error.
+-- Olifant monad is a State Error IO transformer with Error type fixed to Error.i
+-- [TODO] - Replace with `Except Error`
 newtype Olifant s a = Olifant
     { runM :: StateT s (ExceptT Error Identity) a
     } deriving (Functor, Applicative, Monad, MonadError Error,  MonadState s)
