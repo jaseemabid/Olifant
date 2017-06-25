@@ -19,13 +19,13 @@ type Compiler a = Olifant Env a
 type Env = [Ref]
 
 -- | Top level API of the module
-compile :: [C.Calculus] -> Either Error [Bind ()]
-compile ls = evalM (translate ls) []
+compile :: [C.Calculus] -> Either Error [Bind Tipe]
+compile ls = evalM (translate ls >>= typecheck) []
 
 -- | Compile a series of Calculus expressions into untyped core bindings
 --
 -- Input program should be a series of let bindings and one expression in the
--- end.
+-- end. This is the first transformation by the compiler.
 translate :: [C.Calculus] -> Compiler [Bind ()]
 translate [main] = t1 main >>= \m -> return [Main m]
 translate (C.Let var val:xs) = do
@@ -46,6 +46,16 @@ t1 (C.Bool b)     = return $ Lit unit (LBool b)
 t1 (C.App fn arg) = App unit <$> t1 fn <*> t1 arg
 t1 (C.Lam n b)    = Lam unit (Ref n) <$> t1 b
 t1 (C.Let _ _)    = throwError $ SyntaxError "Invalid let expression "
+
+-- | Type check!
+--
+-- The dumbest type checker assigns i64 to everything!
+typecheck :: [Bind ()] -> Compiler [Bind Tipe]
+typecheck [] = return []
+typecheck (x:xs) = do
+  let x' = fmap (const TInt) x
+  xs' <- typecheck xs
+  return $ x':xs'
 
 -- | Find free variables; typed or untyped core
 free :: [Bind ()] -> Compiler [Ref]

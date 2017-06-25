@@ -29,9 +29,9 @@ t2 = testCase "Trivial function translation" $ do
     calc = [CL.Let "c" (CL.Lam "x" (CL.Number 1))
           , CL.App (CL.Var "c") (CL.Number 42)]
 
-    core :: [Bind ()]
-    core = [Bind "c" $ Lam unit "x" (Lit unit (LNumber 1))
-          , Main $ App unit (Var unit "c") (Lit unit (LNumber 42))]
+    core :: [Bind Tipe]
+    core = [Bind "c" $ Lam TInt "x" (Lit TInt (LNumber 1))
+          , Main $ App TInt (Var TInt "c") (Lit TInt (LNumber 42))]
 
 zombie :: TestTree
 zombie = testCase "Find undefined variables" $ do
