@@ -10,8 +10,10 @@ module Main where
 import Prelude   (String)
 import Protolude hiding (cast)
 
+import Olifant.Core
 import Olifant.Compiler
 import Olifant.Parser
+import Olifant.Gen (llvm)
 
 import System.Environment (getArgs)
 import System.FilePath    (replaceExtension)
@@ -46,5 +48,9 @@ exec :: Text -> IO Text
 exec str = do
   let Right a = parse str
   case compile a of
-      Right ut -> return $ show ut
+      Right c -> do
+        j <- llvm $ Progn c
+        case j of
+          Right a ->  return a
+          Left b -> return $ show b
       Left e   -> return $ show e

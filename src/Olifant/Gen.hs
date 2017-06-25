@@ -262,6 +262,9 @@ gen (Bind n (Lam t arg body)) = do
 
 gen (Bind r App{}) = err $ "Top level function call " <> rname r
 
+-- [TODO] - This is a terrible approximation
+gen (Main e) = gen (Bind "main" (Lam TInt (Ref "0") e))
+
 -- | Generate code for an expression not at the top level
 --
 -- Step should return an operand, which is the LHS of the operand it just dealt
