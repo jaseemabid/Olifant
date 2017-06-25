@@ -154,12 +154,12 @@ instance D (Expr ()) where
     p (Lam _ (Ref a) b)     = char 'λ' <> text (toS a) <> char '.' <> p b
 
 instance D (Expr Tipe) where
-    p (Var t (Ref n)) = text (toS n) <+> colon <+> p t
+    p (Var t (Ref n)) = text (toS n) <> colon <> p t
     p (Lit _ (LNumber n)) = int n
     p (Lit _ (LBool True)) = "#t"
     p (Lit _ (LBool False)) = "#t"
-    p (App t a b) = p a <+> p b <+> colon <+> p t
-    p (Lam t (Ref a) b) = char 'λ' <> text (toS a) <> p t <> char '.' <> p b
+    p (App t a b) = p a <+> p b <> colon <> p t
+    p (Lam t (Ref a) b) = char 'λ' <> colon <> p t <+> text (toS a) <> char '.' <> p b
 
 instance D (Bind ()) where
     p (Bind r val) = text "let" <+> p r <+> char '=' <+> p val
