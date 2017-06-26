@@ -10,7 +10,7 @@ module Olifant.Compiler where
 import qualified Olifant.Calculus as C
 import           Olifant.Core
 import           Prelude          (String)
-import           Protolude
+import           Protolude hiding (uncurry)
 
 -- Compiler is an Olifant monad with state set to `Env`
 type Compiler a = Olifant Env a
@@ -49,12 +49,20 @@ t1 (C.Let _ _)    = throwError $ SyntaxError "Invalid let expression "
 
 -- | Type check!
 --
--- The dumbest type checker assigns i64 to everything!
+-- This is pretty stupid and naive. Implement Hindley-Milner soon
 typecheck :: [Bind ()] -> Compiler [Bind Tipe]
-typecheck  = mapM f
+typecheck  = mapM  f
   where
     f :: Bind () -> Compiler (Bind Tipe)
-    f = return . fmap (const TInt)
+    f b@(Bind ref expr) = hm expr >>= \tipe -> return $ fmap (const tipe) b
+
+    hm :: Expr () -> Compiler Tipe
+    hm (Var () _ref) = err "No aliases yet"
+    hm (Lit () (LNumber _)) = return TInt
+    hm (Lit () (LBool _)) = return TBool
+    hm (App () _e1 _e2)  = err "App needs lam before"
+    -- Naively consider the type of argument to be i64
+    hm (Lam () _ref body) = hm body >>= return . uncurry TInt
 
 -- | Find free variables; typed or untyped core
 free :: [Bind ()] -> Compiler [Ref]
@@ -69,3 +77,7 @@ free (b:bs) = case b of
     f Lit{} = return []
     f (App _t fn exp') = return (++) <*> f fn <*> f exp'
     f (Lam _fn arg body) = modify (\s -> arg: s) >> f body
+
+-- | Errors raised by the compiler
+err :: Text -> Compiler a
+err = throwError . TipeError

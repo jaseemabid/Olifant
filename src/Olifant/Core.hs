@@ -15,7 +15,7 @@ module Olifant.Core where
 import Data.Foldable    (foldr1)
 import Data.String
 import Prelude          (init, last, show)
-import Protolude        hiding (show, (<>))
+import Protolude        hiding (show, uncurry, (<>))
 import Text.Parsec      (ParseError)
 import Text.PrettyPrint
 
@@ -31,6 +31,7 @@ newtype Ref = Ref {rname :: Text}
 data Literal = LNumber Int | LBool Bool
     deriving (Eq, Show)
 
+-- [TODO] - Make Tipe a `Traversable` and `IsList`
 data Tipe = TInt | TBool | TArrow [Tipe]
     deriving (Eq)
 
@@ -67,6 +68,11 @@ args :: Tipe -> Tipe
 args (TArrow ts) = TArrow $ init ts
 args t           = t
 
+-- | Uncurry; convert a type to a function that returns that type
+uncurry :: Tipe -> Tipe -> Tipe
+uncurry t (TArrow ts)  = TArrow $ t:ts
+uncurry t1 t2 = TArrow [t1, t2]
+
 -- * Aliases
 
 unit :: ()
@@ -76,7 +82,12 @@ unit = ()
 
 -- | Errors raised by the compiler
 --
-data Error = GenError Text | SyntaxError Text | ParseError ParseError | Panic Text
+data Error =
+    GenError Text
+  | Panic Text
+  | ParseError ParseError
+  | SyntaxError Text
+  | TipeError Text
     deriving (Eq, Show)
 
 -- Olifant Monad
@@ -140,6 +151,7 @@ class D a where
 instance D Ref where
     p (Ref r) = text $ toS r
 
+-- [TODO] - Fix type pretty printer for higher order functions
 instance D Tipe where
     p TInt        = "i"
     p TBool       = "b"
