@@ -51,11 +51,10 @@ t1 (C.Let _ _)    = throwError $ SyntaxError "Invalid let expression "
 --
 -- The dumbest type checker assigns i64 to everything!
 typecheck :: [Bind ()] -> Compiler [Bind Tipe]
-typecheck [] = return []
-typecheck (x:xs) = do
-  let x' = fmap (const TInt) x
-  xs' <- typecheck xs
-  return $ x':xs'
+typecheck  = mapM f
+  where
+    f :: Bind () -> Compiler (Bind Tipe)
+    f = return . fmap (const TInt)
 
 -- | Find free variables; typed or untyped core
 free :: [Bind ()] -> Compiler [Ref]
