@@ -44,7 +44,9 @@ translate cs = case unsnoc cs of
     t1 (C.Bool b)     = return $ Lit unit (LBool b)
     t1 (C.App fn arg) = App unit <$> t1 fn <*> t1 arg
     t1 (C.Lam n b)    = Lam unit (Ref n) <$> t1 b
-    t1 (C.Let _ _)    = throwError $ SyntaxError "Nested let expression"
+    t1 (C.Let _ _)    = case cs of
+      [_] -> serr "Body can't be just a let expression"
+      _ -> throwError $ SyntaxError "Nested let expression"
 
 -- | Type check!
 --
