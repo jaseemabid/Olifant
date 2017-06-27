@@ -27,10 +27,11 @@ t1 = testCase "Trivial function translation" $ do
 
     calc :: [CL.Calculus]
     calc = [CL.Let "c" (CL.Lam "x" (CL.Number 1))
-           , CL.App (CL.Var "c") (CL.Number 42)]
+          , CL.App (CL.Var "c") (CL.Number 42)]
 
     progn :: Progn Tipe
-    progn = Progn [Bind "c" $ Lam TInt "x" (n 1)] (App TInt (Var TInt "c") (n 42))
+    progn = Progn [Bind "c" $ Lam (TArrow [TInt, TInt]) "x" (n 1)]
+      (App TInt (Var TInt "c") (n 42))
 
 zombie :: TestTree
 zombie = testCase "Find undefined variables" $ do
