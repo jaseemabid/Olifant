@@ -144,7 +144,7 @@ instance Show (Progn Tipe) where
 -- pretty printer module.
 
 arrow :: Doc
-arrow = text "->"
+arrow = text "→"
 
 class D a where
     p :: a -> Doc
@@ -171,7 +171,7 @@ instance D (Expr Tipe) where
     p (Lit _ (LNumber n)) = int n
     p (Lit _ (LBool True)) = "#t"
     p (Lit _ (LBool False)) = "#t"
-    p (App t a b) = p a <+> p b <> colon <> p t
+    p (App t a b) = lparen <> p a <+> p b <> rparen <> colon <> p t
     p (Lam t (Ref a) b) = char 'λ' <> colon <> p t <+> text (toS a) <> char '.' <> p b
 
 instance D (Bind ()) where
