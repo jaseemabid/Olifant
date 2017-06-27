@@ -44,11 +44,12 @@ data Expr a
     deriving (Eq, Functor, Foldable, Traversable)
 
 -- | Top level binding of a lambda calc expression to a name
-data Bind a = Bind Ref (Expr a) | Main (Expr a)
+data Bind a = Bind Ref (Expr a)
   deriving (Eq, Functor)
 
--- | A program is a list of bindings
-newtype Progn a = Progn [Bind a]
+-- | A program is a list of bindings and an expression
+data Progn a = Progn [Bind a] (Expr a)
+  deriving (Eq, Functor)
 
 -- | Untyped calculus
 type CoreUT = Expr ()
@@ -70,8 +71,8 @@ args t           = t
 
 -- | Uncurry; convert a type to a function that returns that type
 uncurry :: Tipe -> Tipe -> Tipe
-uncurry t (TArrow ts)  = TArrow $ t:ts
-uncurry t1 t2 = TArrow [t1, t2]
+uncurry t (TArrow ts) = TArrow $ t:ts
+uncurry t1 t2         = TArrow [t1, t2]
 
 -- * Aliases
 
@@ -132,10 +133,10 @@ instance Show (Bind Tipe) where
     show = render . p
 
 instance Show (Progn ()) where
-  show (Progn ps) = unlines (map show ps)
+  show (Progn ps e) = unlines $ map show ps ++ [show e]
 
 instance Show (Progn Tipe) where
-  show (Progn ps) = unlines (map show ps)
+  show (Progn ps e) = unlines $ map show ps ++ [show e]
 
 -- * Pretty printer
 --
@@ -175,12 +176,10 @@ instance D (Expr Tipe) where
 
 instance D (Bind ()) where
     p (Bind r val) = text "let" <+> p r <+> char '=' <+> p val
-    p (Main v)     = p v
 
 -- [TODO] - Add type to pretty printed version of let binding
 instance D (Bind Tipe) where
     p (Bind r val) = text "let" <+> p r <+> char '=' <+> p val
-    p (Main v)     = p v
 
 instance D a => D [a] where
     p xs = vcat $ map p xs

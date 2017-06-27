@@ -8,12 +8,11 @@ Description : The CLI interface to Olifant
 module Main where
 
 import Prelude   (String)
-import Protolude hiding (cast)
+import Protolude hiding (mod)
 
-import Olifant.Core
 import Olifant.Compiler
+import Olifant.Gen      (llvm)
 import Olifant.Parser
-import Olifant.Gen (llvm)
 
 import System.Environment (getArgs)
 import System.FilePath    (replaceExtension)
@@ -48,9 +47,9 @@ exec :: Text -> IO Text
 exec str = do
   let Right a = parse str
   case compile a of
-      Right c -> do
-        j <- llvm $ Progn c
-        case j of
-          Right a ->  return a
-          Left b -> return $ show b
+      Right prog -> do
+        mod <- llvm prog
+        case mod of
+          Right native ->  return native
+          Left e       -> return $ show e
       Left e   -> return $ show e

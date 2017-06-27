@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Test.Compiler where
+module Test.Compiler (tests) where
 
 import Protolude
 
@@ -13,13 +13,13 @@ import Test.Tasty
 import Test.Tasty.HUnit
 
 tests :: TestTree
-tests = testGroup "Compiler" [t2, zombie]
+tests = testGroup "Compiler" [t1, zombie]
 
 -- |  Compile calculus to core
-t2 :: TestTree
-t2 = testCase "Trivial function translation" $ do
+t1 :: TestTree
+t1 = testCase "Trivial function translation" $ do
     parse source @?= Right calc
-    compile calc @?= Right core
+    compile calc @?= Right progn
 
   where
     source :: Text
@@ -27,11 +27,10 @@ t2 = testCase "Trivial function translation" $ do
 
     calc :: [CL.Calculus]
     calc = [CL.Let "c" (CL.Lam "x" (CL.Number 1))
-          , CL.App (CL.Var "c") (CL.Number 42)]
+           , CL.App (CL.Var "c") (CL.Number 42)]
 
-    core :: [Bind Tipe]
-    core = [Bind "c" $ Lam TInt "x" (Lit TInt (LNumber 1))
-          , Main $ App TInt (Var TInt "c") (Lit TInt (LNumber 42))]
+    progn :: Progn Tipe
+    progn = Progn [Bind "c" $ Lam TInt "x" (n 1)] (App TInt (Var TInt "c") (n 42))
 
 zombie :: TestTree
 zombie = testCase "Find undefined variables" $ do
@@ -49,3 +48,6 @@ zombie = testCase "Find undefined variables" $ do
 
 fromRight :: Either a b -> b
 fromRight (Right a) = a
+
+n :: Int -> Core
+n n' = Lit TInt (LNumber n')

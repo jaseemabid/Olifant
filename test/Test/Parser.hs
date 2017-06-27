@@ -5,7 +5,7 @@
 -- [todo] - Parser doesn't understand precedence with braces
 
 
-module Test.Parser where
+module Test.Parser (tests) where
 
 import Protolude hiding (bool)
 

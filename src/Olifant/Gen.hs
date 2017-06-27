@@ -262,9 +262,6 @@ gen (Bind n (Lam t arg body)) = do
 
 gen (Bind r App{}) = err $ "Top level function call " <> rname r
 
--- [TODO] - This is a terrible approximation
-gen (Main e) = gen (Bind "main" (Lam TInt (Ref "0") e))
-
 -- | Generate code for an expression not at the top level
 --
 -- Step should return an operand, which is the LHS of the operand it just dealt
@@ -302,7 +299,10 @@ compile prog = execM (run prog) genState >>= return . mod
   where
     -- | Step through the AST and _throw_ away the results
     run :: Progn Tipe -> Codegen ()
-    run (Progn ps) = mapM_ gen ps
+    run (Progn ps e) = mapM_ gen t
+      where
+        -- [TODO] - This is a terrible approximation
+        t = ps ++ [Bind "main" (Lam TInt (Ref "0") e)]
 
 -- | Generate native code with C++ FFI
 toLLVM :: Module -> IO Text

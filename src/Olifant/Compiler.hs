@@ -10,7 +10,7 @@ module Olifant.Compiler where
 import qualified Olifant.Calculus as C
 import           Olifant.Core
 import           Prelude          (String)
-import           Protolude hiding (uncurry)
+import           Protolude        hiding (uncurry)
 
 -- Compiler is an Olifant monad with state set to `Env`
 type Compiler a = Olifant Env a
@@ -19,65 +19,73 @@ type Compiler a = Olifant Env a
 type Env = [Ref]
 
 -- | Top level API of the module
-compile :: [C.Calculus] -> Either Error [Bind Tipe]
+compile :: [C.Calculus] -> Either Error (Progn Tipe)
 compile ls = evalM (translate ls >>= typecheck) []
 
 -- | Compile a series of Calculus expressions into untyped core bindings
 --
 -- Input program should be a series of let bindings and one expression in the
 -- end. This is the first transformation by the compiler.
-translate :: [C.Calculus] -> Compiler [Bind ()]
-translate [main] = t1 main >>= \m -> return [Main m]
-translate (C.Let var val:xs) = do
-  val' <- t1 val
-  rest <- translate xs
-  return $ Bind (Ref var) val': rest
+translate :: [C.Calculus] -> Compiler (Progn ())
+translate cs = case unsnoc cs of
+    Just (decls, main) -> Progn <$> mapM top decls <*> t1 main
+    Nothing            -> serr $ toS (show cs :: String)
 
-translate x = throwError $ SyntaxError $ toS (show x :: String)
+  where
+    -- | Translate a top level expression into a declaration
+    top :: C.Calculus -> Compiler (Bind ())
+    top (C.Let var val) = t1 val >>= return . Bind (Ref var)
+    top l = serr $ "Expected let expression, got " <> show l <> " instead"
 
--- | Translate a single calculus expression into untyped core
---
--- This function is partial and should not be used directly.
---
-t1 :: C.Calculus -> Compiler CoreUT
-t1 (C.Var a)      = return $ Var unit $ Ref a
-t1 (C.Number n)   = return $ Lit unit (LNumber n)
-t1 (C.Bool b)     = return $ Lit unit (LBool b)
-t1 (C.App fn arg) = App unit <$> t1 fn <*> t1 arg
-t1 (C.Lam n b)    = Lam unit (Ref n) <$> t1 b
-t1 (C.Let _ _)    = throwError $ SyntaxError "Invalid let expression "
+    -- | Translate a nested expression into untyped core
+    t1 :: C.Calculus -> Compiler CoreUT
+    t1 (C.Var a)      = return $ Var unit $ Ref a
+    t1 (C.Number n)   = return $ Lit unit (LNumber n)
+    t1 (C.Bool b)     = return $ Lit unit (LBool b)
+    t1 (C.App fn arg) = App unit <$> t1 fn <*> t1 arg
+    t1 (C.Lam n b)    = Lam unit (Ref n) <$> t1 b
+    t1 (C.Let _ _)    = throwError $ SyntaxError "Nested let expression"
 
 -- | Type check!
 --
 -- This is pretty stupid and naive. Implement Hindley-Milner soon
-typecheck :: [Bind ()] -> Compiler [Bind Tipe]
-typecheck  = mapM  f
+typecheck :: Progn () -> Compiler (Progn Tipe)
+typecheck (Progn decls main) =
+    Progn <$> mapM top decls <*> t1 main
   where
-    f :: Bind () -> Compiler (Bind Tipe)
-    f b@(Bind ref expr) = hm expr >>= \tipe -> return $ fmap (const tipe) b
+    -- Type check a top level expression
+    top  :: Bind () -> Compiler (Bind Tipe)
+    top b@(Bind _ expr) = hm expr >>= \tipe -> return $ fmap (const tipe) b
 
-    hm :: Expr () -> Compiler Tipe
-    hm (Var () _ref) = err "No aliases yet"
+    t1 :: CoreUT -> Compiler Core
+    t1 e = hm e >>= \tipe -> return $ fmap (const tipe) e
+
+    hm :: CoreUT -> Compiler Tipe
+    hm (Var () _ref)        = terr "No aliases yet"
     hm (Lit () (LNumber _)) = return TInt
-    hm (Lit () (LBool _)) = return TBool
-    hm (App () _e1 _e2)  = err "App needs lam before"
+    hm (Lit () (LBool _))   = return TBool
+    hm (App () _e1 _e2)     = terr "App needs lam before"
     -- Naively consider the type of argument to be i64
-    hm (Lam () _ref body) = hm body >>= return . uncurry TInt
+    hm (Lam () _ref body)   = hm body >>= return . uncurry TInt
 
--- | Find free variables; typed or untyped core
-free :: [Bind ()] -> Compiler [Ref]
-free [] = return []
-free (b:bs) = case b of
-    Bind ref val -> put [ref] >> return (++) <*> f val <*> free bs
-    Main val     -> return (++) <*> f val <*> free bs
-
+-- | Find free variables; typed or untyped program
+free :: Progn a -> Compiler [Ref]
+free (Progn decls main) = concat <$> liftA2 (:) (f main) (mapM g decls)
   where
+
+    g :: Bind a -> Compiler [Ref]
+    g (Bind ref val) = put [ref] >> f val
+
     f :: Expr a -> Compiler [Ref]
     f (Var _ x) = get >>= \acc -> return $ if x `elem` acc then [] else [x]
     f Lit{} = return []
     f (App _t fn exp') = return (++) <*> f fn <*> f exp'
     f (Lam _fn arg body) = modify (\s -> arg: s) >> f body
 
+
 -- | Errors raised by the compiler
-err :: Text -> Compiler a
-err = throwError . TipeError
+terr :: Text -> Compiler a
+terr = throwError . TipeError
+
+serr :: Text -> Compiler a
+serr = throwError . SyntaxError
