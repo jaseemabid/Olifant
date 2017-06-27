@@ -18,15 +18,21 @@ n n' = Lit TInt (LNumber n')
 t :: Core
 t = Lit TBool (LBool True)
 
+v :: Tipe -> Text -> Core
+v tipe x = Var tipe $ Ref x
+
 vars :: TestTree
 vars = testCase "Global variables" $ pretty progn @?= Right gen
   where
-    progn = Progn [Bind "x" (n 42) , Bind "y" t] (Var TInt "x")
+    progn = Progn [Bind "x" (n 42) , Bind "y" t] (v TInt "x")
 
     gen :: Text
     gen = "; ModuleID = 'calc'\n\n\
           \@x = global i64 42\n\n\
-          \@y = global i1 1"
+          \@y = global i1 1\n\n\
+          \define external ccc i64 @main(){\n\
+          \entry:\n\
+          \  ret i64 %x\n}"
 
 fn :: TestTree
 fn = testCase "Simple identity function" $
@@ -35,11 +41,15 @@ fn = testCase "Simple identity function" $
   where
     -- | Sample program `x -> x`
     progn :: Progn Tipe
-    progn = Progn [Bind "id" (Lam (TArrow [TInt, TInt]) "x" $ Var TInt "x")]
-        (App TInt (Var TInt "id") (n 1))
+    progn = Progn [Bind "id" (Lam (TArrow [TInt, TInt]) "x" $ v TInt "x")]
+        (App TInt (v (TArrow [TInt, TInt]) "id") (n 1))
 
     gen :: Text
     gen = "; ModuleID = 'calc'\n\n\
           \define external ccc i64 @id(i64 %x){\n\
           \entry:\n\
-          \  ret i64 %x\n}"
+          \  ret i64 %x\n}\n\n\
+          \define external ccc i64 @main(){\n\
+          \entry:\n\
+          \  %0 = call ccc i64 @id(i64 1)\n\
+          \  ret i64 %0\n}"

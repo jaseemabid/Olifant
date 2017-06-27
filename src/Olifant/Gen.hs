@@ -278,14 +278,16 @@ step (Lit _t (LBool True)) = return $ ConstantOperand $ Int 1 1
 step (Lit _t (LBool False)) = return $ ConstantOperand $ Int 1 0
 
 -- Apply the function
---
--- This is a bit too primitive. There are no type checks, or at least ensuring
--- that the function is even defined.
 step (App _t (Lam t (Ref n) _body) val) = do
     arg' <- step val
     call (ret t) (externf t n) arg'
 
--- | Apply non function - throw an error
+-- | Apply function by name
+step (App _t (Var t (Ref n)) val) = do
+    arg' <- step val
+    call (ret t) (externf t n) arg'
+
+-- | Apply something that is not a function
 step (App _t a _) = err $ "Applied non function " <> show a
 
 -- \ Higher order function - throw an error

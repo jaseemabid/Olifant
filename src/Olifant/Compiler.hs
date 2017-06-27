@@ -48,7 +48,7 @@ translate cs = case unsnoc cs of
 
 -- | Type check!
 --
--- This is pretty stupid and naive. Implement Hindley-Milner soon
+-- This is pretty stupid,naive and wrong. Implement Hindley-Milner soon
 typecheck :: Progn () -> Compiler (Progn Tipe)
 typecheck (Progn decls main) =
     Progn <$> mapM top decls <*> t1 main
@@ -61,11 +61,10 @@ typecheck (Progn decls main) =
     t1 e = hm e >>= \tipe -> return $ fmap (const tipe) e
 
     hm :: CoreUT -> Compiler Tipe
-    hm (Var () _ref)        = terr "No aliases yet"
+    hm (Var () _ref)        = return (TArrow [TInt, TInt])
     hm (Lit () (LNumber _)) = return TInt
     hm (Lit () (LBool _))   = return TBool
-    hm (App () _e1 _e2)     = terr "App needs lam before"
-    -- Naively consider the type of argument to be i64
+    hm (App () _e1 _e2)     = return TInt
     hm (Lam () _ref body)   = hm body >>= return . uncurry TInt
 
 -- | Find free variables; typed or untyped program
