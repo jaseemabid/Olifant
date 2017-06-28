@@ -32,7 +32,7 @@ zombie :: TestTree
 zombie = testCase "Find undefined variables" $ do
     c "/x.p"    @?= Left (UndefinedError "p")
     c "/x.f 42" @?= Left (UndefinedError "f")
-    -- c "lec f = id; /x.f 42" @?= Left (UndefinedError "id")
+    c "let f = id; /x.f 42" @?= Left (UndefinedError "id")
 
 n :: Int -> Expr
 n n' = Lit TInt (LNumber n')
