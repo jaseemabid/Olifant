@@ -42,7 +42,7 @@ data GenState = GenState
 -- As of now, a function contains just one block.
 data BlockState = BlockState
   { bname :: Text                     -- Name of the block
-  , stack :: [Named Instruction]     -- List of operations
+  , stack :: [Named Instruction]      -- List of operations
   , term  :: Maybe (Named Terminator) -- Block terminator
   } deriving (Show)
 

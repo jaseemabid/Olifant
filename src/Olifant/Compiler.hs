@@ -94,7 +94,7 @@ infer (Progn decls main) = Progn <$> mapM top decls <*> inner main
       let t' = uncurry t (tipe body')
       return $ Lam t' arg body'
 
--- | Rena :: String()me expression to avoid shadowing
+-- | Rename expression to avoid shadowing
 rename :: Progn -> Compiler Progn
 rename = return
 
