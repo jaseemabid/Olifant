@@ -16,18 +16,15 @@ import Test.Tasty
 import Test.Tasty.HUnit
 
 tests :: TestTree
-tests = testGroup "Parser" [literals, symbols, lam, combinators, application,
-                            lett, ll, alias, v1]
+tests = testGroup "Parser" [literals, lam, combinators, application,
+                            lett, ll, alias]
 
 literals :: TestTree
-literals = testCase "Literal numbers and booleans" $ do
+literals = testCase "Literal numbers, identifiers and booleans" $ do
     expect "42" [Number 42]
     expect "-26" [Number (-26)]
     expect "#f" [Bool False]
     expect "#t" [Bool True]
-
-symbols :: TestTree
-symbols = testCase "Symbols" $
     expect "hello" [Var "hello"]
 
 lam :: TestTree
@@ -64,7 +61,7 @@ application = testCase "λ application" $ do
     d = [App (Var "a") (Var "b")]
 
 lett :: TestTree
-lett = testCase "Let binding of the form `let a = 1`" $ do
+lett = testCase "Let expressions" $ do
     expect "let a = 1" [Let "a" (Number 1)]
     expect "let a   =   1" [Let "a"(Number 1)]
     expect "let   a = 1" [Let "a" (Number 1)]
@@ -76,17 +73,14 @@ alias = testCase "Let bindings with aliases" $
 
 ll :: TestTree
 ll = testCase "Handle sequences of expressions" $ do
-    expect "1; 1" [Number 1, Number 1]
-    expect "1;1" [Number 1, Number 1]
-    expect "1 1" [App (Number 1) (Number 1)]
-    expect "1 2 3" [App (Number 1) (App (Number 2) (Number 3))]
-    expect "/x.x; 1" [Lam "x" TUnit (Var "x"), Number 1]
-
-v1 :: TestTree
-v1 = testCase "Version 1 test program" $
-    expect "let id = /x.x; id 42" [Let "id" id, App (Var "id") (Number 42)]
+    expect "1; 1" [a, a]
+    expect "1;1" [a, a]
+    expect "1 1" [App a a]
+    expect "1 2 3" [App a (App (Number 2) (Number 3))]
+    expect "/x.x; 1" [Lam "x" TUnit (Var "x"), a]
+    expect "let id = /x.x; id 1" [Let "id"  (Lam "x" TUnit (Var "x")), App (Var "id") a]
   where
-    id = Lam "x" TUnit (Var "x")
+    a = Number 1
 
 -- * Helper functions
 
