@@ -12,11 +12,23 @@ import Test.Tasty
 import Test.Tasty.HUnit
 
 tests :: TestTree
-tests = testGroup "Compiler" [t1, zombie]
+tests = testGroup "Compiler" [t1, t2, zombie]
 
--- |  Compile calculus to core
 t1 :: TestTree
-t1 = testCase "Trivial function translation" $
+t1 = testCase "Identity function" $
+    c source @?= Right progn
+  where
+    source :: Text
+    source = "let id = /k:i.k; id 42"
+
+    progn :: Progn
+    progn = Progn [Bind "id" $ Lam id "k" (Var TInt "k")] (App TInt (Var id "id") (n 42))
+
+    id :: Tipe
+    id = TArrow TInt TInt
+
+t2 :: TestTree
+t2 = testCase "Const function" $
     c source @?= Right progn
   where
     source :: Text

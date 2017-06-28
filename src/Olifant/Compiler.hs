@@ -85,10 +85,14 @@ infer (Progn decls main) = Progn <$> mapM top decls <*> inner main
         Just t  -> return $ App t fn' arg'
         Nothing -> throwError $ TipeError fn (argT $ tipe fn') (tipe fn')
 
-    inner (Lam t f body) = do
+    -- @t@ is the type of the argument, not the entire function because that's
+    -- how annotations work in simply typed λ calculus works. @t'@ is the type
+    -- of the function.
+    inner (Lam t arg body) = do
+      extend t arg
       body' <- inner body
       let t' = uncurry t (tipe body')
-      return $ Lam t' f body
+      return $ Lam t' arg body'
 
 -- | Rena :: String()me expression to avoid shadowing
 rename :: Progn -> Compiler Progn
