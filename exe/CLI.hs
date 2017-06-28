@@ -45,9 +45,11 @@ main = getArgs >>= parseArgs
 -- | Compile a string and return result
 exec :: Text -> IO Text
 exec str = do
+  -- [TODO] - Expression is partial
   let Right a = parse str
   case compile a of
       Right prog -> do
+        -- putStrLn (show prog :: Text)
         mod <- llvm prog
         case mod of
           Right native ->  return native

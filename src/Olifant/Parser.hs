@@ -10,7 +10,7 @@
 module Olifant.Parser where
 
 import Olifant.Calculus
-import Olifant.Core     (Error (..))
+import Olifant.Core     (Error (..), Tipe (..))
 
 import Prelude   (Char, String, read)
 import Protolude hiding (bool, try, (<|>))
@@ -27,7 +27,7 @@ import Text.Parsec
 
 -- | Special symbols
 specials :: String
-specials = ['λ', '#', '\\', '/', ';', '\n']
+specials = [':', 'λ', '#', '\\', '/', ';', '\n']
 
 -- | Term separator
 sep :: Parsec Text st Char
@@ -42,6 +42,16 @@ number = Number <$> p
         sign <- option ' ' (char '-')
         d <- read <$> many1 digit
         return $ if sign == '-' then negate d else d
+
+--- | Parse a type
+tipe :: Parsec Text st Tipe
+tipe = do
+    t <- optionMaybe $ try (char ':') *> (char 'i' <|> char 'b')
+    return $ case t of
+        Just 'b' -> TBool
+        Just 'i' -> TInt
+        Just _   -> TUnit
+        Nothing  -> TUnit
 
 -- | Parse scheme style boolean
 --
@@ -62,9 +72,10 @@ lambda :: Parsec Text st Calculus
 lambda = do
     choice $ map char ['\\', '/', 'λ']
     arg <- identifier
+    t <- tipe
     char '.'
     body <- calculus
-    return $ Lam arg body
+    return $ Lam arg t body
 
 bind :: Parsec Text st Calculus
 bind = do

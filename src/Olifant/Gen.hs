@@ -10,8 +10,8 @@ module Olifant.Gen where
 
 import Olifant.Core
 
-import qualified Prelude   as P
-import           Protolude hiding (Type, local, mod)
+import Prelude   (head)
+import Protolude hiding (Type, head, local, mod)
 
 import Data.ByteString.Short      (toShort)
 import LLVM.AST
@@ -80,7 +80,7 @@ define g = do
 
 -- | Get the current block
 current :: Codegen BlockState
-current = P.head <$> gets blocks
+current = head <$> gets blocks
 
 -- | Push a named instruction to the stack of the active block
 push :: Named Instruction -> Codegen ()
@@ -150,13 +150,13 @@ alloca t (Just ref) = named t ref $ Alloca (native t) Nothing 0 []
 
 -- | Call a function `fn` with `arg`
 call :: Tipe -> Operand -> Operand -> Codegen Operand
-call t fn arg' = unnamed t $ Call Nothing C [] fn' args' [] []
+call t fn arg = unnamed t $ Call Nothing C [] fn' args' [] []
   where
     fn' :: CallableOperand
     fn' = Right fn
 
     args' :: [(Operand, [ParameterAttribute])]
-    args' = [(arg', [])]
+    args' = [(arg, [])]
 
 -- | Add 2 integers
 add :: Operand -> Operand -> Instruction
@@ -182,11 +182,12 @@ global t n = GlobalReference (native t) $ lname n
 
 -- | Map from Olifant types to LLVM types
 native :: Tipe -> Type
+native TUnit = LLVM.AST.Type.void
 native TInt = i64
 native TBool = i1
-native (TArrow types) = FunctionType {
-    argumentTypes = map native $ P.init types
-  , resultType = native $ P.last types
+native (TArrow ta tb) = FunctionType {
+    argumentTypes = [native ta]
+  , resultType = native tb
   , isVarArg = False
   }
 
@@ -210,7 +211,7 @@ externf t n = ConstantOperand $ global t n
 --
 -- The only allowed top level constructs are global variables and function
 -- definitions. Any other term in top level will raise an error.
-gen :: Bind Tipe -> Codegen Operand
+gen :: Bind -> Codegen Operand
 
 -- | A top level variable could be an alias, but its an error for now
 gen (Bind _ (Var _ ref)) = err $ "Top level alias " <> rname ref
@@ -231,11 +232,7 @@ gen (Bind (Ref name') lit@(Lit t _val)) = do
       }
 
 -- | Top level lambda expression
---
--- [TODO] - Ensure `t1 == t2`
--- [TODO] - Should do the closure business
-gen (Bind n (Lam t arg body)) = do
-
+gen (Bind n (Lam t (Ref f) body)) = do
     -- [TODO] - Localize this computation
     -- Make a new block for this function and add to `GenState`
     modify $ \s -> s {blocks = blocks s ++ [blockState n]}
@@ -248,17 +245,17 @@ gen (Bind n (Lam t arg body)) = do
     let fn = functionDefaults {
           name          = lname $ rname n
         , parameters  = ([Parameter ty nm [] | (ty, nm) <- params], False)
-        , returnType  = native $ ret t
+        , returnType  = native $ retT t
         , basicBlocks = [basicBlock instructions term']
       }
 
     define fn
-    return $ local t $ rname arg
+    return $ local t f
   where
     params :: [(Type, Name)]
     params = case t of
-      (TArrow ts) -> [(native t', lname $ rname arg) | t' <- P.init ts]
-      _           -> []
+      (TArrow ta _) -> [(native ta, lname f)]
+      _             -> []
 
 gen (Bind r App{}) = err $ "Top level function call " <> rname r
 
@@ -266,7 +263,7 @@ gen (Bind r App{}) = err $ "Top level function call " <> rname r
 --
 -- Step should return an operand, which is the LHS of the operand it just dealt
 -- with. Step is free to push instructions to the current block.
-step :: Core -> Codegen Operand
+step :: Expr -> Codegen Operand
 
 -- | Convert a reference into a local operand.
 --
@@ -279,13 +276,13 @@ step (Lit _t (LBool False)) = return $ ConstantOperand $ Int 1 0
 
 -- Apply the function
 step (App _t (Lam t (Ref n) _body) val) = do
-    arg' <- step val
-    call (ret t) (externf t n) arg'
+    arg <- step val
+    call (retT t) (externf t n) arg
 
 -- | Apply function by name
 step (App _t (Var t (Ref n)) val) = do
-    arg' <- step val
-    call (ret t) (externf t n) arg'
+    arg <- step val
+    call (retT t) (externf t n) arg
 
 -- | Apply something that is not a function
 step (App _t a _) = err $ "Applied non function " <> show a
@@ -295,12 +292,12 @@ step (Lam _t ref _) = err $ "Higher order function" <> show ref
 
 -- * Code generation
 
--- | Make an LLVM module from Core
-compile :: Progn Tipe -> Either Error Module
+-- | Make an LLVM module from a `Progn`
+compile :: Progn -> Either Error Module
 compile prog = execM (run prog) genState >>= return . mod
   where
     -- | Step through the AST and _throw_ away the results
-    run :: Progn Tipe -> Codegen ()
+    run :: Progn -> Codegen ()
     run (Progn ps e) = mapM_ gen t
       where
         -- [TODO] - This is a terrible approximation
@@ -313,11 +310,11 @@ toLLVM modl =
         toS <$> withModuleFromAST context modl moduleLLVMAssembly
 
 -- | Pretty print LLVM AST with pure Haskell API
-pretty :: Progn Tipe -> Either Error Text
+pretty :: Progn -> Either Error Text
 pretty ast = toS . ppllvm <$> compile ast
 
 -- | Return compiled LLVM IR
-llvm :: Progn  Tipe -> IO (Either Error Text)
+llvm :: Progn -> IO (Either Error Text)
 llvm ast = case compile ast of
   Left e     -> return $ Left e
   Right mod' -> toLLVM mod' >>= return . Right

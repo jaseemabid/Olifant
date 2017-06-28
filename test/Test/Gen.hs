@@ -12,14 +12,14 @@ import Test.Tasty.HUnit
 tests :: TestTree
 tests = testGroup "LLVM Code generator" [vars, fn]
 
-n :: Int -> Core
+n :: Int -> Expr
 n n' = Lit TInt (LNumber n')
 
-t :: Core
+t :: Expr
 t = Lit TBool (LBool True)
 
-v :: Tipe -> Text -> Core
-v tipe x = Var tipe $ Ref x
+v :: Tipe -> Text -> Expr
+v ta x = Var ta $ Ref x
 
 vars :: TestTree
 vars = testCase "Global variables" $ pretty progn @?= Right gen
@@ -40,9 +40,9 @@ fn = testCase "Simple identity function" $
 
   where
     -- | Sample program `x -> x`
-    progn :: Progn Tipe
-    progn = Progn [Bind "id" (Lam (TArrow [TInt, TInt]) "x" $ v TInt "x")]
-        (App TInt (v (TArrow [TInt, TInt]) "id") (n 1))
+    progn :: Progn
+    progn = Progn [Bind "id" (Lam (TArrow TInt TInt) "x" $ v TInt "x")]
+        (App TInt (v (TArrow TInt TInt) "id") (n 1))
 
     gen :: Text
     gen = "; ModuleID = 'calc'\n\n\

@@ -3,18 +3,14 @@ Module      : Olifant.Core
 Description : Core data structures of the compiler
 -}
 
-{-# LANGUAGE DeriveFoldable             #-}
-{-# LANGUAGE DeriveFunctor              #-}
-{-# LANGUAGE DeriveTraversable          #-}
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE TypeSynonymInstances       #-}
 
 module Olifant.Core where
 
-import Data.Foldable    (foldr1)
 import Data.String
-import Prelude          (init, last, show)
+import Prelude          (Show (..))
 import Protolude        hiding (show, uncurry, (<>))
 import Text.Parsec      (ParseError)
 import Text.PrettyPrint
@@ -29,55 +25,57 @@ newtype Ref = Ref {rname :: Text}
     deriving (Eq, Ord)
 
 data Literal = LNumber Int | LBool Bool
-    deriving (Eq, Show)
+    deriving (Eq)
 
 -- [TODO] - Make Tipe a `Traversable` and `IsList`
-data Tipe = TInt | TBool | TArrow [Tipe]
+data Tipe = TUnit | TInt | TBool | TArrow Tipe Tipe
     deriving (Eq)
 
 -- | An annotated lambda calculus expression
-data Expr a
-    = Var a Ref
-    | Lit a Literal
-    | App a (Expr a) (Expr a)
-    | Lam a Ref (Expr a)
-    deriving (Eq, Functor, Foldable, Traversable)
+data Expr
+    = Var Tipe Ref
+    | Lit Tipe Literal
+    | App Tipe Expr Expr
+    | Lam Tipe Ref Expr
+    deriving (Eq)
 
 -- | Top level binding of a lambda calc expression to a name
-data Bind a = Bind Ref (Expr a)
-  deriving (Eq, Functor)
+data Bind = Bind Ref Expr
+  deriving (Eq)
 
 -- | A program is a list of bindings and an expression
-data Progn a = Progn [Bind a] (Expr a)
-  deriving (Eq, Functor)
-
--- | Untyped calculus
-type CoreUT = Expr ()
-
--- | Typed calculus
-type Core = Expr Tipe
+data Progn = Progn [Bind] Expr
+  deriving (Eq)
 
 -- * Type helpers
+tipe :: Expr -> Tipe
+tipe (Var t _)   = t
+tipe (Lit t _)   = t
+tipe (App t _ _) = t
+tipe (Lam t _ _) = t
 
 -- | Return type of a type
-ret :: Tipe -> Tipe
-ret (TArrow ts) = last ts
-ret t           = t
+retT :: Tipe -> Tipe
+retT (TArrow _ tb) = retT tb
+retT t             = t
 
 -- | Arguments of a type
-args :: Tipe -> Tipe
-args (TArrow ts) = TArrow $ init ts
-args t           = t
+argT :: Tipe -> Tipe
+argT (TArrow ta _) = ta
+argT t             = t
 
--- | Uncurry; convert a type to a function that returns that type
+-- | Convert a type to a function that returns that type
 uncurry :: Tipe -> Tipe -> Tipe
-uncurry t (TArrow ts) = TArrow $ t:ts
-uncurry t1 t2         = TArrow [t1, t2]
+uncurry = TArrow
 
--- * Aliases
-
-unit :: ()
-unit = ()
+-- | Apply a type to a function
+--    > curry (TArrow [TInt, TBool]) TInt
+--    TBool
+curry :: Tipe -> Tipe -> Maybe Tipe
+curry t (TArrow ta tb)
+  | t == ta = Just tb
+  | otherwise = Nothing
+curry _ _ = Nothing
 
 -- * Error handling and state monad
 
@@ -88,8 +86,9 @@ data Error =
   | Panic Text
   | ParseError ParseError
   | SyntaxError Text
-  | TipeError Text
-    deriving (Eq, Show)
+  | UndefinedError Ref
+  | TipeError {expr :: Expr, expected :: Tipe, reality :: Tipe}
+  deriving (Eq, Show)
 
 -- Olifant Monad
 --
@@ -120,22 +119,13 @@ instance Show Ref where
 instance Show Tipe where
     show = render . p
 
-instance Show Core where
+instance Show Expr where
     show = render . p
 
-instance Show CoreUT where
+instance Show Bind where
     show = render . p
 
-instance Show (Bind ()) where
-    show = render . p
-
-instance Show (Bind Tipe) where
-    show = render . p
-
-instance Show (Progn ()) where
-  show (Progn ps e) = unlines $ map show ps ++ [show e]
-
-instance Show (Progn Tipe) where
+instance Show Progn where
   show (Progn ps e) = unlines $ map show ps ++ [show e]
 
 -- * Pretty printer
@@ -143,8 +133,11 @@ instance Show (Progn Tipe) where
 -- These functions are in core to avoid circular dependency between core and
 -- pretty printer module.
 
-arrow :: Doc
-arrow = text "→"
+arrow, dot, lambda, lett :: Doc
+arrow   = char '→'
+lambda  = char 'λ'
+dot     = char '.'
+lett    = text "let"
 
 class D a where
     p :: a -> Doc
@@ -154,32 +147,22 @@ instance D Ref where
 
 -- [TODO] - Fix type pretty printer for higher order functions
 instance D Tipe where
-    p TInt        = "i"
-    p TBool       = "b"
-    p (TArrow ts) = foldr1 (\a b -> a <+> arrow <+> b) $ map p ts
+    p TUnit          = "∅"
+    p TInt           = "i"
+    p TBool          = "b"
+    p (TArrow ta tb) = p ta <> arrow <> p tb
 
-instance D (Expr ()) where
-    p (Var _ (Ref n))       = text $ toS n
-    p (Lit _ (LNumber n))   = int n
-    p (Lit _ (LBool True))  = "#t"
-    p (Lit _ (LBool False)) = "#t"
-    p (App _ a b)           = p a <+> p b
-    p (Lam _ (Ref a) b)     = char 'λ' <> text (toS a) <> char '.' <> p b
-
-instance D (Expr Tipe) where
+instance D Expr where
     p (Var t (Ref n)) = text (toS n) <> colon <> p t
     p (Lit _ (LNumber n)) = int n
     p (Lit _ (LBool True)) = "#t"
     p (Lit _ (LBool False)) = "#t"
-    p (App t a b) = lparen <> p a <+> p b <> rparen <> colon <> p t
-    p (Lam t (Ref a) b) = char 'λ' <> colon <> p t <+> text (toS a) <> char '.' <> p b
-
-instance D (Bind ()) where
-    p (Bind r val) = text "let" <+> p r <+> char '=' <+> p val
+    p (App _ f e) = p f <+> p e
+    p (Lam t r e) = lambda <> p r <> colon <> p (argT t) <> dot <> p e
 
 -- [TODO] - Add type to pretty printed version of let binding
-instance D (Bind Tipe) where
-    p (Bind r val) = text "let" <+> p r <+> char '=' <+> p val
+instance D Bind where
+    p (Bind r val) = lett <+> p r <> colon <> p (tipe val) <+> equals <+> p val
 
 instance D a => D [a] where
     p xs = vcat $ map p xs
