@@ -14,6 +14,7 @@ import Prelude   (head)
 import Protolude hiding (Type, head, local, mod)
 
 import Data.ByteString.Short      (toShort)
+import LLVM.Analysis              (verify)
 import LLVM.AST
 import LLVM.AST.AddrSpace
 import LLVM.AST.Attribute
@@ -316,7 +317,8 @@ passes = defaultCuratedPassSetSpec {optLevel = Just 0}
 toLLVM :: Module -> IO Text
 toLLVM modl =
   withContext $ \context ->
-      withModuleFromAST context modl $ \m ->
+      withModuleFromAST context modl $ \m -> do
+           verify m
            withPassManager passes $ \pm -> do
                 _ <- runPassManager pm m
                 toS <$> moduleLLVMAssembly m
