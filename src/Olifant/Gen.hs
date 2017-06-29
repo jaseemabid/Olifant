@@ -158,7 +158,7 @@ store var val = push $ Do $ Store False (pointer var) val Nothing 0 []
 
 -- | Fetch a variable from memory
 load :: Tipe -> Operand -> Codegen Operand
-load t var = unnamed t $ Load False (pointer var) Nothing 0 []
+load t var = unnamed t $ Load False var Nothing 0 []
 
 -- | Make an `alloca` instruction
 alloca :: Tipe -> Maybe Text -> Codegen Operand
@@ -286,7 +286,7 @@ step :: Expr -> Codegen Operand
 step (Var (Ref n t Local)) = return $ local t n
 
 -- | Use a global variable
-step (Var (Ref n t Global)) = load t $ local t n
+step (Var (Ref n t Global)) = load t $ externf t n
 
 -- | Make a constant operand out of the constant
 step (Lit (LNumber n)) = return $ ConstantOperand $ Int 64 (toInteger n)

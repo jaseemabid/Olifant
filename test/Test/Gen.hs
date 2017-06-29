@@ -19,13 +19,15 @@ vars = testCase "Global variables" $
     c "let x = 42; let y = #t; x" >>= \l -> l @?= Right gen
   where
     gen :: Text
-    gen = "; ModuleID = 'calc'\n\n\
-          \source_filename = \"<string>\"\n\
-          \@x = global i64 42\n\n\
-          \@y = global i1 1\n\n\
-          \define i64 @main(i64 %_){\n\
+    gen = "; ModuleID = 'calc'\n\
+          \source_filename = \"<string>\"\n\n\
+          \@x = global i64 42\n\
+          \@y = global i1 true\n\n\
+          \define i64 @main(i64 %_) {\n\
           \entry:\n\
-          \  ret i64 %x\n}"
+          \  %0 = load i64, i64* @x\n\
+          \  ret i64 %0\n\
+          \}\n"
 
 fn :: TestTree
 fn = testCase "Simple identity function" $
