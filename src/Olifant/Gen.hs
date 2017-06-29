@@ -1,6 +1,21 @@
 {-|
 Module      : Olifant.Gen
 Description : LLVM Code generator for Core
+
+Generate LLVM IR from a fully typed Code
+
+__No Symbol Table__
+
+One of the interesting things I learned about the code generator is that a
+symbol table is unnecessary.
+
+As far as possible, we use an alternative strategy: a variable is a data
+structure that contains all the information about itself. I find this approach
+simpler. Each state of the compiler can augment and annotate more information
+into the reference accordingly. A simple pass can be made even simpler without
+getting into any of the StateT business.
+
+Ref: http://www.aosabook.org/en/ghc.html § No Symbol Table
 -}
 
 {-# LANGUAGE DuplicateRecordFields #-}
@@ -216,10 +231,10 @@ externf t n = ConstantOperand $ global t n
 gen :: Bind -> Codegen Operand
 
 -- | A top level variable could be an alias, but its an error for now
-gen (Bind _ (Var _ ref)) = err $ "Top level alias " <> rname ref
+gen (Bind _ (Var ref)) = err $ "Top level alias " <> rname ref
 
 -- | Add a constant global variable
-gen (Bind (Ref name') lit@(Lit t _val)) = do
+gen (Bind ref lit@(Lit _val)) = do
     op@(ConstantOperand value') <- step lit
 
     define $  global' value'
@@ -228,13 +243,13 @@ gen (Bind (Ref name') lit@(Lit t _val)) = do
   where
     global' :: Constant -> Global
     global' val = globalVariableDefaults
-      { name = Name $ toShort $ toS name'
+      { name = Name $ toShort $ toS $ rname ref
       , initializer = Just val
-      , type' = native t
+      , type' = native $ tipe lit
       }
 
 -- | Top level lambda expression
-gen (Bind n (Lam t (Ref f) body)) = do
+gen (Bind n (Lam t ref body)) = do
     -- [TODO] - Localize this computation
     -- Make a new block for this function and add to `GenState`
     modify $ \s -> s {blocks = blocks s ++ [blockState n]}
@@ -252,11 +267,11 @@ gen (Bind n (Lam t (Ref f) body)) = do
       }
 
     define fn
-    return $ local t f
+    return $ local t $ rname ref
   where
     params :: [(Type, Name)]
     params = case t of
-      (TArrow ta _) -> [(native ta, lname f)]
+      (TArrow ta _) -> [(native ta, lname $ rname ref)]
       _             -> []
 
 gen (Bind r App{}) = err $ "Top level function call " <> rname r
@@ -268,21 +283,23 @@ gen (Bind r App{}) = err $ "Top level function call " <> rname r
 step :: Expr -> Codegen Operand
 
 -- | Convert a reference into a local operand.
---
-step (Var t (Ref n)) = return $ local t n
+step (Var (Ref n t Local)) = return $ local t n
+
+-- | Use a global variable
+step (Var (Ref n t Global)) = load t $ local t n
 
 -- | Make a constant operand out of the constant
-step (Lit _t (LNumber n)) = return $ ConstantOperand $ Int 64 (toInteger n)
-step (Lit _t (LBool True)) = return $ ConstantOperand $ Int 1 1
-step (Lit _t (LBool False)) = return $ ConstantOperand $ Int 1 0
+step (Lit (LNumber n)) = return $ ConstantOperand $ Int 64 (toInteger n)
+step (Lit (LBool True)) = return $ ConstantOperand $ Int 1 1
+step (Lit (LBool False)) = return $ ConstantOperand $ Int 1 0
 
 -- Apply the function
-step (App _t (Lam t (Ref n) _body) val) = do
+step (App _t (Lam t (Ref n _ _) _body) val) = do
     arg <- step val
     call (retT t) (externf t n) arg
 
 -- | Apply function by name
-step (App _t (Var t (Ref n)) val) = do
+step (App _t (Var (Ref n t Global)) val) = do
     arg <- step val
     call (retT t) (externf t n) arg
 
@@ -303,7 +320,8 @@ compile prog = execM (run prog) genState >>= return . mod
     run (Progn ps e) = mapM_ gen t
       where
         -- [TODO] - This is a terrible approximation
-        t = ps ++ [Bind "main" (Lam TInt (Ref "0") e)]
+        t = ps ++ [Bind (Ref "main" (TArrow TInt TInt) Global)
+                    (Lam (TArrow TInt TInt) (Ref "_" TInt Local) e)]
 
 -- | Tweak passes of LLVM compiler
 --

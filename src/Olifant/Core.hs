@@ -18,26 +18,28 @@ import Text.PrettyPrint
 --  - https://ghc.haskell.org/trac/ghc/wiki/Commentary/Compiler/CoreSynType
 --  - http://blog.ezyang.com/2013/05/the-ast-typing-problem/
 
--- Known issues
--- [TODO] - Ensure non empty [] for TArrow
+-- | Code generator treats local and global variables differently
+data Scope = Local | Global
+  deriving (Eq, Ord)
 
-newtype Ref = Ref {rname :: Text}
+-- | A reference; an embedded data structure avoids the need for a symbol table
+data Ref = Ref {rname :: Text, rtipe :: Tipe, scope :: Scope}
     deriving (Eq, Ord)
 
 data Literal = LNumber Int | LBool Bool
-    deriving (Eq)
+    deriving Eq
 
--- [TODO] - Make Tipe a `Traversable` and `IsList`
+-- [TODO] - Replace TArrow with ~>
 data Tipe = TUnit | TInt | TBool | TArrow Tipe Tipe
-    deriving (Eq)
+    deriving (Eq, Ord)
 
 -- | An annotated lambda calculus expression
 data Expr
-    = Var Tipe Ref
-    | Lit Tipe Literal
+    = Var Ref
+    | Lit Literal
     | App Tipe Expr Expr
     | Lam Tipe Ref Expr
-    deriving (Eq)
+    deriving Eq
 
 -- | Top level binding of a lambda calc expression to a name
 data Bind = Bind Ref Expr
@@ -49,10 +51,11 @@ data Progn = Progn [Bind] Expr
 
 -- * Type helpers
 tipe :: Expr -> Tipe
-tipe (Var t _)   = t
-tipe (Lit t _)   = t
-tipe (App t _ _) = t
-tipe (Lam t _ _) = t
+tipe (Var (Ref _ t _)) = t
+tipe (Lit (LNumber _)) = TInt
+tipe (Lit (LBool _))   = TBool
+tipe (App t _ _)       = t
+tipe (Lam t _ _)       = t
 
 -- | Return type of a type
 retT :: Tipe -> Tipe
@@ -108,13 +111,13 @@ execM c s = runIdentity $ runExceptT $ execStateT (runOlifant c) s
 -- * Instance declarations
 
 instance IsString Ref where
-    fromString x = Ref $ toS x
+    fromString x = Ref (toS x) TUnit Local
 
 -- Ed Kmett says I should not use UndecidableInstances to avoid this
 -- boilerplate, so I'm gonna do that. `D a => Show a` looked so promising :/
 
 instance Show Ref where
-    show (Ref a) = show a
+    show ref = show $ rname ref
 
 instance Show Tipe where
     show = render . p
@@ -126,7 +129,7 @@ instance Show Bind where
     show = render . p
 
 instance Show Progn where
-  show (Progn ps e) = unlines $ map show ps ++ [show e]
+    show (Progn ps e) = unlines $ map show ps ++ [show e]
 
 -- * Pretty printer
 --
@@ -143,7 +146,8 @@ class D a where
     p :: a -> Doc
 
 instance D Ref where
-    p (Ref r) = text $ toS r
+    p (Ref n t Local)  = text (toS n) <> colon <> p t
+    p (Ref n t Global) = char '@' <> text (toS n) <> colon <> p t
 
 -- [TODO] - Fix type pretty printer for higher order functions
 instance D Tipe where
@@ -153,16 +157,16 @@ instance D Tipe where
     p (TArrow ta tb) = p ta <> arrow <> p tb
 
 instance D Expr where
-    p (Var t (Ref n)) = text (toS n) <> colon <> p t
-    p (Lit _ (LNumber n)) = int n
-    p (Lit _ (LBool True)) = "#t"
-    p (Lit _ (LBool False)) = "#t"
-    p (App _ f e) = p f <+> p e
-    p (Lam t r e) = lambda <> p r <> colon <> p (argT t) <> dot <> p e
+    p (Var ref)           = p ref
+    p (Lit (LNumber n))   = int n
+    p (Lit (LBool True))  = "#t"
+    p (Lit (LBool False)) = "#t"
+    p (App _ f e)         = p f <+> p e
+    p (Lam _ r e)         = lambda <> p r <> dot <> p e
 
 -- [TODO] - Add type to pretty printed version of let binding
 instance D Bind where
-    p (Bind r val) = lett <+> p r <> colon <> p (tipe val) <+> equals <+> p val
+    p (Bind r val) = lett <+> p r <+> equals <+> p val
 
 instance D a => D [a] where
     p xs = vcat $ map p xs
