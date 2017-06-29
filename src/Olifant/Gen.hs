@@ -23,6 +23,7 @@ import LLVM.AST.Global
 import LLVM.AST.Type
 import LLVM.Context               (withContext)
 import LLVM.Module                (moduleLLVMAssembly, withModuleFromAST)
+import LLVM.PassManager
 import LLVM.Pretty                (ppllvm)
 
 -- | State of the complete program
@@ -303,11 +304,22 @@ compile prog = execM (run prog) genState >>= return . mod
         -- [TODO] - This is a terrible approximation
         t = ps ++ [Bind "main" (Lam TInt (Ref "0") e)]
 
+-- | Tweak passes of LLVM compiler
+--
+-- More info on opt passes:
+--   - http://www.stephendiehl.com/llvm/#optimization-passes
+--   - https://www.stackage.org/haddock/nightly-2017-06-28/llvm-hs-4.2.0/LLVM-PassManager.html
+passes :: PassSetSpec
+passes = defaultCuratedPassSetSpec {optLevel = Just 0}
+
 -- | Generate native code with C++ FFI
 toLLVM :: Module -> IO Text
 toLLVM modl =
-    withContext $ \context ->
-        toS <$> withModuleFromAST context modl moduleLLVMAssembly
+  withContext $ \context ->
+      withModuleFromAST context modl $ \m ->
+           withPassManager passes $ \pm -> do
+                _ <- runPassManager pm m
+                toS <$> moduleLLVMAssembly m
 
 -- | Pretty print LLVM AST with pure Haskell API
 pretty :: Progn -> Either Error Text
