@@ -55,7 +55,7 @@ cast cs = case unsnoc cs of
     inner (C.Lam n t b)  = inner b >>= \x -> return $ Lam TUnit (Ref n t Local) x
     inner (C.Let _ _)    = case cs of
       [_] -> serr "Body can't be just a let expression"
-      _   -> throwError $ SyntaxError "Nested let expression"
+      _   -> serr "Nested let expression"
 
 -- Infer types
 --
