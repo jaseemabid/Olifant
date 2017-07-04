@@ -40,7 +40,6 @@ import LLVM.AST.Type
 import LLVM.Context               (withContext)
 import LLVM.Module                (moduleLLVMAssembly, withModuleFromAST)
 import LLVM.PassManager
-import LLVM.Pretty                (ppllvm)
 
 -- | State of the complete program
 data GenState = GenState
@@ -340,10 +339,6 @@ toLLVM modl =
            withPassManager passes $ \pm -> do
                 _ <- runPassManager pm m
                 toS <$> moduleLLVMAssembly m
-
--- | Pretty print LLVM AST with pure Haskell API
-pretty :: Progn -> Either Error Text
-pretty ast = toS . ppllvm <$> compile ast
 
 -- | Return compiled LLVM IR
 llvm :: Progn -> IO (Either Error Text)

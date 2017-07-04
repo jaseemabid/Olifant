@@ -3,8 +3,3 @@ resolver: lts-8.20
 extra-deps:
 - llvm-hs-pure-4.1.0.0
 - llvm-hs-4.2.0
-
-packages:
-  - .
-  - location: llvm-hs-pretty
-    extra-dep: true
