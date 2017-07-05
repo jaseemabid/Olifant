@@ -50,6 +50,13 @@ sin = hReady stdin >>= \case
 parseArgs :: [String] -> IO ()
 parseArgs ["-h"] = usage
 parseArgs ["-v"] = version
+
+parseArgs ["-p"] = sin >>= \case
+    Just src -> case parse src of
+        Right t -> print t
+        Left e  -> print e
+    Nothing -> usage
+
 parseArgs ["-c"] = sin >>= \case
     Just src -> case core src of
         Right t -> print t
