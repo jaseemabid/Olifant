@@ -7,16 +7,16 @@ Description : The CLI interface to Olifant
 
 module Main where
 
-import Prelude   (String)
+import Prelude (String)
 import Protolude hiding (mod)
 
 import Olifant.Compiler
-import Olifant.Gen      (llvm)
+import Olifant.Gen (llvm)
 import Olifant.Parser
 
 import System.Environment (getArgs)
-import System.FilePath    (replaceExtension)
-import System.IO          (hReady)
+import System.FilePath (replaceExtension)
+import System.IO (hReady)
 
 usage :: IO ()
 usage = putStrLn ("Usage: olifant [-vh] [file] " :: Text)
@@ -44,14 +44,16 @@ main = getArgs >>= parseArgs
 
 -- | Compile a string and return result
 exec :: Text -> IO Text
-exec str = do
-  -- [TODO] - Expression is partial
-  let Right a = parse str
-  case compile a of
-      Right prog -> do
-        -- putStrLn (show prog :: Text)
-        mod <- llvm prog
-        case mod of
-          Right native ->  return native
-          Left e       -> return $ show e
-      Left e   -> return $ show e
+exec str =
+    -- This looks nothing like Haskell! ¯\\_(ツ)_/¯
+    case parse str of
+        Right a ->
+            case compile a of
+                Right prog -> do
+                    -- putStrLn (show prog :: Text)
+                    mod <- llvm prog
+                    case mod of
+                        Right native -> return native
+                        Left e       -> return $ show e
+                Left e   -> return $ show e
+        Left e   -> return $ show e

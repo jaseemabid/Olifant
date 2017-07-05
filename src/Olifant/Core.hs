@@ -10,8 +10,7 @@ Description : Core data structures of the compiler
 module Olifant.Core where
 
 import Data.String
-import Prelude          (Show (..))
-import Protolude        hiding (show, uncurry, (<>))
+import Protolude        hiding (uncurry, (<>))
 import Text.Parsec      (ParseError)
 import Text.PrettyPrint
 
@@ -20,18 +19,18 @@ import Text.PrettyPrint
 
 -- | Code generator treats local and global variables differently
 data Scope = Local | Global
-  deriving (Eq, Ord)
+  deriving (Eq, Ord, Show)
 
 -- | A reference; an embedded data structure avoids the need for a symbol table
 data Ref = Ref {rname :: Text, rtipe :: Tipe, scope :: Scope}
-    deriving (Eq, Ord)
+    deriving (Eq, Ord, Show)
 
 data Literal = LNumber Int | LBool Bool
-    deriving Eq
+    deriving (Eq, Show)
 
 -- [TODO] - Replace TArrow with ~>
 data Tipe = TUnit | TInt | TBool | TArrow Tipe Tipe
-    deriving (Eq, Ord)
+    deriving (Eq, Ord, Show)
 
 -- | An annotated lambda calculus expression
 data Expr
@@ -39,15 +38,15 @@ data Expr
     | Lit Literal
     | App Tipe Expr Expr
     | Lam Tipe Ref Expr
-    deriving Eq
+    deriving (Eq, Show)
 
 -- | Top level binding of a lambda calc expression to a name
 data Bind = Bind Ref Expr
-  deriving (Eq)
+  deriving (Eq, Show)
 
 -- | A program is a list of bindings and an expression
 data Progn = Progn [Bind] Expr
-  deriving (Eq)
+  deriving (Eq, Show)
 
 -- * Type helpers
 tipe :: Expr -> Tipe
@@ -98,7 +97,7 @@ data Error =
 -- A `State + Error + IO` transformer with Error type fixed to `Error`
 newtype Olifant s a = Olifant
     { runOlifant :: StateT s (Except Error) a
-    } deriving (Functor, Applicative, Monad, MonadError Error, MonadState s)
+    } deriving (Applicative, Functor, Monad, MonadError Error, MonadState s)
 
 -- | Run a computation in olifant monad with some state and return the result
 evalM :: Olifant s a -> s -> Either Error a
@@ -112,24 +111,6 @@ execM c s = runIdentity $ runExceptT $ execStateT (runOlifant c) s
 
 instance IsString Ref where
     fromString x = Ref (toS x) TUnit Local
-
--- Ed Kmett says I should not use UndecidableInstances to avoid this
--- boilerplate, so I'm gonna do that. `D a => Show a` looked so promising :/
-
-instance Show Ref where
-    show ref = show $ rname ref
-
-instance Show Tipe where
-    show = render . p
-
-instance Show Expr where
-    show = render . p
-
-instance Show Bind where
-    show = render . p
-
-instance Show Progn where
-    show (Progn ps e) = unlines $ map show ps ++ [show e]
 
 -- * Pretty printer
 --
