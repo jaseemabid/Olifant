@@ -1,6 +1,11 @@
-module Olifant
-    ( compile
-    , native
-    ) where
+module Olifant (
+    Calculus(..)
+  , compile
+  , gen
+  , parser
+  ) where
 
-import Olifant.Gen (compile, native)
+import Olifant.Gen (gen)
+import Olifant.Calculus (Calculus(..))
+import Olifant.Parser (parser)
+import Olifant.Compiler (compile)

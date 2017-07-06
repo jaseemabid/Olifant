@@ -12,7 +12,7 @@ import Protolude hiding (handle, mod, sin)
 
 import Olifant.Core
 import Olifant.Compiler
-import Olifant.Gen (llvm)
+import Olifant.Gen (gen)
 import Olifant.Parser
 
 import System.Environment (getArgs)
@@ -34,7 +34,7 @@ exec :: Text -> IO (Either Error Text)
 exec str =
     case core str of
         Right prog -> do
-          mod <- llvm prog
+          mod <- gen prog
           case mod of
             Right native -> return $ Right native
             Left e       -> return $ Left e

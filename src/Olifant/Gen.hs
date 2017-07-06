@@ -227,14 +227,14 @@ externf t n = ConstantOperand $ global t n
 --
 -- The only allowed top level constructs are global variables and function
 -- definitions. Any other term in top level will raise an error.
-gen :: Bind -> Codegen Operand
+top :: Bind -> Codegen Operand
 
 -- | A top level variable could be an alias, but its an error for now
-gen (Bind _ (Var ref)) = err $ "Top level alias " <> rname ref
+top (Bind _ (Var ref)) = err $ "Top level alias " <> rname ref
 
 -- | Add a constant global variable
-gen (Bind ref lit@(Lit _val)) = do
-    op@(ConstantOperand value') <- step lit
+top (Bind ref lit@(Lit _val)) = do
+    op@(ConstantOperand value') <- inner lit
 
     define $  global' value'
     return op
@@ -248,12 +248,12 @@ gen (Bind ref lit@(Lit _val)) = do
       }
 
 -- | Top level lambda expression
-gen (Bind n (Lam t ref body)) = do
+top (Bind n (Lam t ref body)) = do
     -- [TODO] - Localize this computation
     -- Make a new block for this function and add to `GenState`
     modify $ \s -> s {blocks = blocks s ++ [blockState n]}
 
-    result <- step body
+    result <- inner body
     term' <- terminator result
 
     instructions <- stack <$> current
@@ -273,50 +273,50 @@ gen (Bind n (Lam t ref body)) = do
       (TArrow ta _) -> [(native ta, lname $ rname ref)]
       _             -> []
 
-gen (Bind r App{}) = err $ "Top level function call " <> rname r
+top (Bind r App{}) = err $ "Top level function call " <> rname r
 
 -- | Generate code for an expression not at the top level
 --
--- Step should return an operand, which is the LHS of the operand it just dealt
--- with. Step is free to push instructions to the current block.
-step :: Expr -> Codegen Operand
+-- Inner should return an operand, which is the LHS of the operand it just dealt
+-- with. Inner is free to push instructions to the current block.
+inner :: Expr -> Codegen Operand
 
 -- | Convert a reference into a local operand.
-step (Var (Ref n t Local)) = return $ local t n
+inner (Var (Ref n t Local)) = return $ local t n
 
 -- | Use a global variable
-step (Var (Ref n t Global)) = load t $ externf t n
+inner (Var (Ref n t Global)) = load t $ externf t n
 
 -- | Make a constant operand out of the constant
-step (Lit (LNumber n)) = return $ ConstantOperand $ Int 64 (toInteger n)
-step (Lit (LBool True)) = return $ ConstantOperand $ Int 1 1
-step (Lit (LBool False)) = return $ ConstantOperand $ Int 1 0
+inner (Lit (LNumber n)) = return $ ConstantOperand $ Int 64 (toInteger n)
+inner (Lit (LBool True)) = return $ ConstantOperand $ Int 1 1
+inner (Lit (LBool False)) = return $ ConstantOperand $ Int 1 0
 
 -- Apply the function
-step (App _t (Lam t (Ref n _ _) _body) val) = do
-    arg <- step val
+inner (App _t (Lam t (Ref n _ _) _body) val) = do
+    arg <- inner val
     call (retT t) (externf t n) arg
 
 -- | Apply function by name
-step (App _t (Var (Ref n t Global)) val) = do
-    arg <- step val
+inner (App _t (Var (Ref n t Global)) val) = do
+    arg <- inner val
     call (retT t) (externf t n) arg
 
 -- | Apply something that is not a function
-step (App _t a _) = err $ "Applied non function " <> show a
+inner (App _t a _) = err $ "Applied non function " <> show a
 
 -- \ Higher order function - throw an error
-step (Lam _t ref _) = err $ "Higher order function" <> show ref
+inner (Lam _t ref _) = err $ "Higher order function" <> show ref
 
 -- * Code generation
 
 -- | Make an LLVM module from a `Progn`
-compile :: Progn -> Either Error Module
-compile prog = execM (run prog) genState >>= return . mod
+genm :: Progn -> Either Error Module
+genm prog = execM (run prog) genState >>= return . mod
   where
     -- | Step through the AST and _throw_ away the results
     run :: Progn -> Codegen ()
-    run (Progn ps e) = mapM_ gen t
+    run (Progn ps e) = mapM_ top t
       where
         -- [TODO] - This is a terrible approximation
         t = ps ++ [Bind (Ref "main" (TArrow TInt TInt) Global)
@@ -341,8 +341,8 @@ toLLVM modl =
                 toS <$> moduleLLVMAssembly m
 
 -- | Return compiled LLVM IR
-llvm :: Progn -> IO (Either Error Text)
-llvm ast = case compile ast of
+gen :: Progn -> IO (Either Error Text)
+gen ast = case genm ast of
   Left e     -> return $ Left e
   Right mod' -> toLLVM mod' >>= return . Right
 
