@@ -11,7 +11,7 @@ hello.s: hello.bc
 
 .DEFAULT_GOAL := hello
 hello: hello.s hello.ll
-	gcc hello.s -o hello
+	clang -O0 hello.s -o hello -lm
 
 .PHONY: clean
 clean:
