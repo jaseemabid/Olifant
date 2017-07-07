@@ -9,6 +9,7 @@
 *.html
 *.o
 *.prof
+*.so
 .HTF/
 .cabal-sandbox/
 .hpc
