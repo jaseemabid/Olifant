@@ -91,8 +91,27 @@ define g = do
     let mod' = modl {moduleDefinitions = defs}
     put $ st {mod = mod'}
 
--- * Manipulate `BlockState`
+-- | Declare an external function
+--
+-- I'm not sure if there is a better way to declare an external function than
+-- defining a function with an empty block list and not without naming all
+-- arguments `_`
+declare :: Name -> Tipe -> Codegen ()
+declare n t = define f
+  where
+    f = functionDefaults {
+      name = n
+    , parameters = ([Parameter at an [] | (at, an) <- params t], False)
+    , returnType = native $ retT t
+    , basicBlocks = []
+    }
 
+    -- | Tipe to list
+    params :: Tipe -> [(Type, Name)]
+    params (TArrow ta _) = [(native ta, "_")]
+    params _             = []
+
+-- * Manipulate `BlockState`
 -- | Get the current block
 current :: Codegen BlockState
 current = head <$> gets blocks
@@ -299,11 +318,19 @@ genm prog = execM (run prog) genState >>= return . mod
   where
     -- | Step through the AST and _throw_ away the results
     run :: Progn -> Codegen ()
-    run (Progn ps e) = mapM_ top t
+    run (Progn ps e) = do
+        declare "printi" tt
+        mapM_ top t
       where
+        tt :: Tipe
+        tt = TArrow TInt TInt
+
+        cp :: Expr
+        cp = Var $ Ref "printi" tt Global
+
         -- [TODO] - This is a terrible approximation
-        t = ps ++ [Bind (Ref "main" (TArrow TInt TInt) Global)
-                    (Lam (TArrow TInt TInt) (Ref "_" TInt Local) e)]
+        t = ps ++ [Bind (Ref "main" tt Global)
+                    (Lam (TArrow TInt TInt) (Ref "_" TInt Local) (App TInt cp e))]
 
 -- | Tweak passes of LLVM compiler
 --
