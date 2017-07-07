@@ -31,7 +31,6 @@ import Protolude hiding (Type, head, local, mod)
 import Data.ByteString.Short      (toShort)
 import LLVM.Analysis              (verify)
 import LLVM.AST
-import LLVM.AST.AddrSpace
 import LLVM.AST.Attribute
 import LLVM.AST.CallingConvention
 import LLVM.AST.Constant
@@ -149,12 +148,6 @@ lname = Name . toShort . toS
 
 -- * Primitive wrappers
 
--- | Variable assignment
---
--- Converts expression of the form @%1 = 2@ to @* %1 = 2@
-store :: Operand -> Operand -> Codegen ()
-store var val = push $ Do $ Store False (pointer var) val Nothing 0 []
-
 -- | Fetch a variable from memory
 load :: Tipe -> Operand -> Codegen Operand
 load t var = unnamed t $ Load False var Nothing 0 []
@@ -206,16 +199,6 @@ native (TArrow ta tb) = FunctionType {
   , resultType = native tb
   , isVarArg = False
   }
-
--- | Get pointer to a local variable
---
--- > i64 f -> i64* f
-pointer :: Operand -> Operand
-pointer (LocalReference t name') = LocalReference pt name'
-  where
-    pt :: Type
-    pt = PointerType t $ AddrSpace 0
-pointer x = error $ "Cannot make a pointer for " <> show x
 
 -- | Make an operand out of a global function
 --
