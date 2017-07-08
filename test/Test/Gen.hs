@@ -15,40 +15,14 @@ tests :: TestTree
 tests = testGroup "LLVM Code generator" [vars, fn]
 
 vars :: TestTree
-vars = testCase "Global variables" $
+vars = testCase "Global variables" $ do
+    ir <- readFile "test/Test/global.ll"
     c "let x = 42; let y = #t; x" >>= \l -> l @?= Right ir
-  where
-    ir :: Text
-    ir = "; ModuleID = 'calc'\n\
-         \source_filename = \"<string>\"\n\n\
-         \@x = global i64 42\n\
-         \@y = global i1 true\n\n\
-         \declare i64 @printi(i64)\n\n\
-         \define i64 @main(i64 %_) {\n\
-         \entry:\n\
-         \  %0 = load i64, i64* @x\n\
-         \  %1 = call i64 @printi(i64 %0)\n\
-         \  ret i64 %1\n\
-         \}\n"
 
 fn :: TestTree
-fn = testCase "Simple identity function" $
-    c "let id = /x:i.x; id 1" >>= \l -> l @?= Right ir
-  where
-    ir :: Text
-    ir = "; ModuleID = 'calc'\n\
-         \source_filename = \"<string>\"\n\n\
-         \declare i64 @printi(i64)\n\n\
-         \define i64 @id(i64 %x) {\n\
-         \entry:\n\
-         \  ret i64 %x\n\
-         \}\n\n\
-         \define i64 @main(i64 %_) {\n\
-         \entry:\n\
-         \  %0 = call i64 @id(i64 1)\n\
-         \  %1 = call i64 @printi(i64 %0)\n\
-         \  ret i64 %1\n\
-         \}\n"
+fn = testCase "Simple identity function" $ do
+     ir <- readFile "test/Test/id.ll"
+     c "let id = /x:i.x; id 1" >>= \l -> l @?= Right ir
 
 c :: Text -> IO (Either Error Text)
 c t = gen m
