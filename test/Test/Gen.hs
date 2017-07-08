@@ -23,10 +23,12 @@ vars = testCase "Global variables" $
          \source_filename = \"<string>\"\n\n\
          \@x = global i64 42\n\
          \@y = global i1 true\n\n\
+         \declare i64 @printi(i64)\n\n\
          \define i64 @main(i64 %_) {\n\
          \entry:\n\
          \  %0 = load i64, i64* @x\n\
-         \  ret i64 %0\n\
+         \  %1 = call i64 @printi(i64 %0)\n\
+         \  ret i64 %1\n\
          \}\n"
 
 fn :: TestTree
@@ -36,6 +38,7 @@ fn = testCase "Simple identity function" $
     ir :: Text
     ir = "; ModuleID = 'calc'\n\
          \source_filename = \"<string>\"\n\n\
+         \declare i64 @printi(i64)\n\n\
          \define i64 @id(i64 %x) {\n\
          \entry:\n\
          \  ret i64 %x\n\
@@ -43,7 +46,8 @@ fn = testCase "Simple identity function" $
          \define i64 @main(i64 %_) {\n\
          \entry:\n\
          \  %0 = call i64 @id(i64 1)\n\
-         \  ret i64 %0\n\
+         \  %1 = call i64 @printi(i64 %0)\n\
+         \  ret i64 %1\n\
          \}\n"
 
 c :: Text -> IO (Either Error Text)
