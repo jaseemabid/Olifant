@@ -65,7 +65,7 @@ infer (Progn decls main) = Progn <$> mapM top decls <*> inner main
     top :: Bind -> Compiler Bind
     top (Bind (Ref n _ _) core) = do
       core' <- inner core
-      let ref = Ref n (tipe core') Global
+      let ref = Ref n (ty core') Global
       extend n ref
       return $ Bind ref core'
 
@@ -81,14 +81,14 @@ infer (Progn decls main) = Progn <$> mapM top decls <*> inner main
     inner (App _ fn arg) = do
         fn' <- inner fn
         arg' <- inner arg
-        case curry (tipe arg') (tipe fn') of
+        case curry (ty arg') (ty fn') of
             Just t  -> return $ App t fn' arg'
-            Nothing -> throwError $ TipeError arg (argT $ tipe fn') (tipe arg')
+            Nothing -> throwError $ TyError arg (argT $ ty fn') (ty arg')
 
     inner (Lam _ arg body) = do
         extend (rname arg) arg
         body' <- inner body
-        let t = uncurry (rtipe arg) (tipe body')
+        let t = uncurry (rty arg) (ty body')
         return $ Lam t arg body'
 
 -- | Rename expression to avoid shadowing

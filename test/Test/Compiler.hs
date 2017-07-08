@@ -25,7 +25,7 @@ t1 = testCase "Identity function" $
     progn = Progn [Bind (Ref "id" id Global) $ Lam id (Ref "k" TInt Local) (v "k")]
       (App TInt (Var $ Ref "id" id Global) (n 42))
 
-    id :: Tipe
+    id :: Ty
     id = TArrow TInt TInt
 
 t2 :: TestTree
@@ -39,7 +39,7 @@ t2 = testCase "Const function" $
     progn = Progn [Bind (Ref "c" id Global) $ Lam id (Ref "x" TInt Local) (n 1)]
       (App TInt (Var $ Ref "c" id Global) (n 42))
 
-    id :: Tipe
+    id :: Ty
     id = TArrow TInt TInt
 
 zombie :: TestTree

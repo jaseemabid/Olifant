@@ -22,22 +22,22 @@ data Scope = Local | Global
   deriving (Eq, Ord, Show)
 
 -- | A reference; an embedded data structure avoids the need for a symbol table
-data Ref = Ref {rname :: Text, rtipe :: Tipe, scope :: Scope}
+data Ref = Ref {rname :: Text, rty :: Ty, scope :: Scope}
     deriving (Eq, Ord, Show)
 
 data Literal = LNumber Int | LBool Bool
     deriving (Eq, Show)
 
 -- [TODO] - Replace TArrow with ~>
-data Tipe = TUnit | TInt | TBool | TArrow Tipe Tipe
+data Ty = TUnit | TInt | TBool | TArrow Ty Ty
     deriving (Eq, Ord, Show)
 
 -- | An annotated lambda calculus expression
 data Expr
     = Var Ref
     | Lit Literal
-    | App Tipe Expr Expr
-    | Lam Tipe Ref Expr
+    | App Ty Expr Expr
+    | Lam Ty Ref Expr
     deriving (Eq, Show)
 
 -- | Top level binding of a lambda calc expression to a name
@@ -49,31 +49,31 @@ data Progn = Progn [Bind] Expr
   deriving (Eq, Show)
 
 -- * Type helpers
-tipe :: Expr -> Tipe
-tipe (Var (Ref _ t _)) = t
-tipe (Lit (LNumber _)) = TInt
-tipe (Lit (LBool _))   = TBool
-tipe (App t _ _)       = t
-tipe (Lam t _ _)       = t
+ty :: Expr -> Ty
+ty (Var (Ref _ t _)) = t
+ty (Lit (LNumber _)) = TInt
+ty (Lit (LBool _))   = TBool
+ty (App t _ _)       = t
+ty (Lam t _ _)       = t
 
 -- | Return type of a type
-retT :: Tipe -> Tipe
+retT :: Ty -> Ty
 retT (TArrow _ tb) = retT tb
 retT t             = t
 
 -- | Arguments of a type
-argT :: Tipe -> Tipe
+argT :: Ty -> Ty
 argT (TArrow ta _) = ta
 argT t             = t
 
 -- | Convert a type to a function that returns that type
-uncurry :: Tipe -> Tipe -> Tipe
+uncurry :: Ty -> Ty -> Ty
 uncurry = TArrow
 
 -- | Apply a type to a function
 --    > curry (TArrow [TInt, TBool]) TInt
 --    TBool
-curry :: Tipe -> Tipe -> Maybe Tipe
+curry :: Ty -> Ty -> Maybe Ty
 curry t (TArrow ta tb)
   | t == ta = Just tb
   | otherwise = Nothing
@@ -89,7 +89,7 @@ data Error =
   | ParseError ParseError
   | SyntaxError Text
   | UndefinedError Ref
-  | TipeError {expr :: Expr, expected :: Tipe, reality :: Tipe}
+  | TyError {expr :: Expr, expected :: Ty, reality :: Ty}
   deriving (Eq, Show)
 
 -- Olifant Monad
@@ -131,7 +131,7 @@ instance D Ref where
     p (Ref n t Global) = char '@' <> text (toS n) <> colon <> p t
 
 -- [TODO] - Fix type pretty printer for higher order functions
-instance D Tipe where
+instance D Ty where
     p TUnit          = "∅"
     p TInt           = "i"
     p TBool          = "b"

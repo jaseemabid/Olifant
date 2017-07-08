@@ -6,13 +6,13 @@ module Olifant.Calculus where
 
 import Protolude
 
-import Olifant.Core (Tipe)
+import Olifant.Core (Ty)
 
 data Calculus =
     Var Text
   | Number Int
   | Bool Bool
   | App Calculus Calculus
-  | Lam Text Tipe Calculus
+  | Lam Text Ty Calculus
   | Let Text Calculus
   deriving (Eq, Show)

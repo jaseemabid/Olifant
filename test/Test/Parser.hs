@@ -9,7 +9,7 @@ module Test.Parser (tests) where
 import Protolude hiding (bool)
 
 import Olifant.Calculus
-import Olifant.Core     (Tipe (..))
+import Olifant.Core     (Ty (..))
 import Olifant.Parser
 
 import Test.Tasty

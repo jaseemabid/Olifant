@@ -96,7 +96,7 @@ define g = do
 -- I'm not sure if there is a better way to declare an external function than
 -- defining a function with an empty block list and not without naming all
 -- arguments `_`
-declare :: Name -> Tipe -> Codegen ()
+declare :: Name -> Ty -> Codegen ()
 declare n t = define f
   where
     f = functionDefaults {
@@ -106,8 +106,8 @@ declare n t = define f
     , basicBlocks = []
     }
 
-    -- | Tipe to list
-    params :: Tipe -> [(Type, Name)]
+    -- | Ty to list
+    params :: Ty -> [(Type, Name)]
     params (TArrow ta _) = [(native ta, "_")]
     params _             = []
 
@@ -136,7 +136,7 @@ push ins = do
 --  - Adds @%2 = Add 1 2@ to the stack
 --  - Returns @%2@
 --
-unnamed :: Tipe -> Instruction -> Codegen Operand
+unnamed :: Ty -> Instruction -> Codegen Operand
 unnamed t ins = do
     new <- fresh
     push $ new := ins
@@ -155,7 +155,7 @@ unnamed t ins = do
 --  - Adds @%foo = Add 1 2@ to the stack
 --  - Returns @%foo@
 --
-named :: Tipe -> Text -> Instruction -> Codegen Operand
+named :: Ty -> Text -> Instruction -> Codegen Operand
 named t str ins = push (op := ins) >> return (LocalReference (native t) op)
   where
     op :: Name
@@ -168,16 +168,16 @@ lname = Name . toShort . toS
 -- * Primitive wrappers
 
 -- | Fetch a variable from memory
-load :: Tipe -> Operand -> Codegen Operand
+load :: Ty -> Operand -> Codegen Operand
 load t var = unnamed t $ Load False var Nothing 0 []
 
 -- | Make an `alloca` instruction
-alloca :: Tipe -> Maybe Text -> Codegen Operand
+alloca :: Ty -> Maybe Text -> Codegen Operand
 alloca t Nothing    = unnamed t $ Alloca (native t) Nothing 0 []
 alloca t (Just ref) = named t ref $ Alloca (native t) Nothing 0 []
 
 -- | Call a function `fn` with `arg`
-call :: Tipe -> Operand -> Operand -> Codegen Operand
+call :: Ty -> Operand -> Operand -> Codegen Operand
 call t fn arg = unnamed t $ Call Nothing C [] fn' args' [] []
   where
     fn' :: CallableOperand
@@ -201,15 +201,15 @@ terminator result = return $ Do $ Ret (Just result) []
 -- * References
 
 -- | Get a reference operand from a string
-local :: Tipe -> Text -> Operand
+local :: Ty -> Text -> Operand
 local t n = LocalReference (native t) $ lname n
 
 -- | Get a global reference from a string
-global :: Tipe -> Text -> Constant
+global :: Ty -> Text -> Constant
 global t n = GlobalReference (native t) $ lname n
 
 -- | Map from Olifant types to LLVM types
-native :: Tipe -> Type
+native :: Ty -> Type
 native TUnit = LLVM.AST.Type.void
 native TInt = i64
 native TBool = i1
@@ -222,7 +222,7 @@ native (TArrow ta tb) = FunctionType {
 -- | Make an operand out of a global function
 --
 -- > %f -> @f
-externf :: Tipe -> Text -> Operand
+externf :: Ty -> Text -> Operand
 externf t n = ConstantOperand $ global t n
 
 -- | Generate code for a top level binding
@@ -246,7 +246,7 @@ top (Bind ref lit@(Lit _val)) = do
     global' val = globalVariableDefaults
       { name = Name $ toShort $ toS $ rname ref
       , initializer = Just val
-      , type' = native $ tipe lit
+      , type' = native $ ty lit
       }
 
 -- | Top level lambda expression
@@ -262,7 +262,7 @@ top (Bind n (Lam t ref body)) = do
 
     let fn = functionDefaults {
           name          = lname $ rname n
-        , parameters  = ([Parameter ty nm [] | (ty, nm) <- params], False)
+        , parameters  = ([Parameter tipe nm [] | (tipe, nm) <- params], False)
         , returnType  = native $ retT t
         , basicBlocks = [basicBlock instructions term']
       }
@@ -322,7 +322,7 @@ genm prog = execM (run prog) genState >>= return . mod
         declare "printi" tt
         mapM_ top t
       where
-        tt :: Tipe
+        tt :: Ty
         tt = TArrow TInt TInt
 
         cp :: Expr
