@@ -87,7 +87,7 @@ bind = do
 
 -- | A term, which is anything except lambda application
 term :: Parsec Text st Calculus
-term = bind <|> lambda <|> symbol <|> bool <|> number
+term = bind <|> lambda <|> symbol <|> bool <|> number <|> (char '(' *> term <* char ')')
 
 -- Calculus
 calculus :: Parsec Text st Calculus
