@@ -6,8 +6,8 @@ hello.bc: hello.c
 hello.ll: hello.c
 	clang -O0 -emit-llvm hello.c -S -o hello.ll
 
-hello.s: hello.bc
-	llc hello.bc -o hello.s
+hello.s: hello.c
+	clang -O0 -S hello.c
 
 .DEFAULT_GOAL := hello
 hello: hello.s hello.ll
