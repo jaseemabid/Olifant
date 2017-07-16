@@ -7,7 +7,7 @@ hello.ll: hello.c
 	clang -O0 -emit-llvm hello.c -S -o hello.ll
 
 hello.s: hello.c
-	clang -O0 -S hello.c
+	clang -O0 -masm=intel -S -fno-asynchronous-unwind-tables hello.c
 
 .DEFAULT_GOAL := hello
 hello: hello.s hello.ll
