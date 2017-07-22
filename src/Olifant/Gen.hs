@@ -231,7 +231,7 @@ top (Bind _ (Var ref)) = err $ "Top level alias " <> rname ref
 top (Bind n (Lam t refs body)) = do
     -- [TODO] - Localize this computation
     -- Make a new block for this function and add to `GenState`
-    modify $ \s -> s {blocks = blocks s ++ [blockState n]}
+    modify $ \s -> s {blocks = blockState n : blocks s}
 
     result <- inner body
     term' <- terminator result
