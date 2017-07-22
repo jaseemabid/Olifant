@@ -310,17 +310,16 @@ genm prog = execM (run prog) genState >>= return . mod
     run :: Progn -> Codegen ()
     run (Progn ps e) = do
         declare "printi" tt
-        mapM_ top t
+        mapM_ top $ ps ++ [main]
       where
         tt :: Ty
         tt = TArrow TInt TInt
 
-        cp :: Expr
-        cp = Var $ Ref "printi" tt Global
+        printi :: Expr
+        printi = Var $ Ref "printi" tt Global
 
         -- [TODO] - This is a terrible approximation
-        t = ps ++ [Bind (Ref "main" tt Global)
-                    (Lam TInt [] (App TInt cp [e]))]
+        main = Bind (Ref "main" TInt Global) (Lam TInt [] (App TInt printi [e]))
 
 -- | Tweak passes of LLVM compiler
 --
