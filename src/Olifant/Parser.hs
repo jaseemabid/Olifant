@@ -13,7 +13,7 @@ import Olifant.Calculus
 import Olifant.Core     (Error (..), Ty (..))
 
 import Prelude   (Char, String, read)
-import Protolude hiding (bool, try, (<|>))
+import Protolude hiding (bool, many, try, (<|>))
 
 import Data.Char   (isAlpha)
 import Data.Text   (strip)
@@ -71,11 +71,16 @@ symbol = Var <$> identifier
 lambda :: Parsec Text st Calculus
 lambda = do
     choice $ map char ['\\', '/', 'λ']
-    arg <- identifier
-    t <- ty
+    ps <- sepEndBy1 param (many1 space)
     char '.'
     body <- calculus
-    return $ Lam arg t body
+    return $ Lam ps body
+  where
+    param :: Parsec Text st (Ty, Text)
+    param = do
+        arg <- identifier
+        t <- ty
+        return (t, arg)
 
 bind :: Parsec Text st Calculus
 bind = do
@@ -92,9 +97,11 @@ term = bind <|> lambda <|> symbol <|> bool <|> number <|> (char '(' *> term <* c
 -- Calculus
 calculus :: Parsec Text st Calculus
 calculus = do
-    a <- spaces *> term <* spaces
-    b <- optionMaybe $ spaces *> calculus <* spaces
-    return $ maybe a (App a) b
+    f <- spaces *> term <* spaces
+    as <- many (spaces *> term <* spaces)
+    case as of
+        [] -> return f
+        _ -> return $ App f as
 
 parser :: Parsec Text st [Calculus]
 parser = calculus `sepEndBy1` sep <* eof

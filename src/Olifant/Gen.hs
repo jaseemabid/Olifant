@@ -176,16 +176,6 @@ alloca :: Ty -> Maybe Text -> Codegen Operand
 alloca t Nothing    = unnamed t $ Alloca (native t) Nothing 0 []
 alloca t (Just ref) = named t ref $ Alloca (native t) Nothing 0 []
 
--- | Call a function `fn` with `arg`
-call :: Ty -> Operand -> Operand -> Codegen Operand
-call t fn arg = unnamed t $ Call Nothing C [] fn' args' [] []
-  where
-    fn' :: CallableOperand
-    fn' = Right fn
-
-    args' :: [(Operand, [ParameterAttribute])]
-    args' = [(arg, [])]
-
 -- | Add 2 integers
 add :: Operand -> Operand -> Instruction
 add lhs rhs = LLVM.AST.Add False False lhs rhs []
@@ -214,10 +204,13 @@ native TUnit = LLVM.AST.Type.void
 native TInt = i64
 native TBool = i1
 native (TArrow ta tb) = FunctionType {
-    argumentTypes = [native ta]
-  , resultType = native tb
+    argumentTypes = tl ta
+  , resultType = native $ retT tb
   , isVarArg = False
   }
+  where
+    tl (TArrow a b) = native a : tl b
+    tl t = [native t]
 
 -- | Make an operand out of a global function
 --
@@ -238,7 +231,7 @@ top (Bind _ (Var ref)) = err $ "Top level alias " <> rname ref
 top (Bind ref lit@(Lit _val)) = do
     op@(ConstantOperand value') <- inner lit
 
-    define $  global' value'
+    define $ global' value'
     return op
 
   where
@@ -250,7 +243,7 @@ top (Bind ref lit@(Lit _val)) = do
       }
 
 -- | Top level lambda expression
-top (Bind n (Lam t ref body)) = do
+top (Bind n (Lam t refs body)) = do
     -- [TODO] - Localize this computation
     -- Make a new block for this function and add to `GenState`
     modify $ \s -> s {blocks = blocks s ++ [blockState n]}
@@ -268,12 +261,10 @@ top (Bind n (Lam t ref body)) = do
       }
 
     define fn
-    return $ local t $ rname ref
+    return $ local t $ rname n
   where
     params :: [(Type, Name)]
-    params = case t of
-      (TArrow ta _) -> [(native ta, lname $ rname ref)]
-      _             -> []
+    params = [(native $ rty ref, lname $ rname ref) | ref <- refs]
 
 top (Bind r App{}) = err $ "Top level function call " <> rname r
 
@@ -294,15 +285,15 @@ inner (Lit (LNumber n)) = return $ ConstantOperand $ Int 64 (toInteger n)
 inner (Lit (LBool True)) = return $ ConstantOperand $ Int 1 1
 inner (Lit (LBool False)) = return $ ConstantOperand $ Int 1 0
 
--- Apply the function
-inner (App _t (Lam t (Ref n _ _) _body) val) = do
-    arg <- inner val
-    call (retT t) (externf t n) arg
-
 -- | Apply function by name
-inner (App _t (Var (Ref n t Global)) val) = do
-    arg <- inner val
-    call (retT t) (externf t n) arg
+inner (App _t (Var (Ref n t Global)) vals) = do
+    args' <- mapM inner vals
+    let args'' = [(arg, []) | arg <- args'] :: [(Operand, [ParameterAttribute])]
+
+    unnamed (retT t) $ Call Nothing C [] fn args'' [] []
+  where
+    fn :: CallableOperand
+    fn = Right $ externf t n
 
 -- | Apply something that is not a function
 inner (App _t a _) = err $ "Applied non function " <> show a
@@ -330,7 +321,7 @@ genm prog = execM (run prog) genState >>= return . mod
 
         -- [TODO] - This is a terrible approximation
         t = ps ++ [Bind (Ref "main" tt Global)
-                    (Lam (TArrow TInt TInt) (Ref "_" TInt Local) (App TInt cp e))]
+                    (Lam TInt [] (App TInt cp [e]))]
 
 -- | Tweak passes of LLVM compiler
 --

@@ -10,7 +10,7 @@ Description : Core data structures of the compiler
 module Olifant.Core where
 
 import Data.String
-import Protolude        hiding (uncurry, (<>))
+import Protolude        hiding ((<>))
 import Text.Parsec      (ParseError)
 import Text.PrettyPrint
 
@@ -33,11 +33,16 @@ data Ty = TUnit | TInt | TBool | TArrow Ty Ty
     deriving (Eq, Ord, Show)
 
 -- | An annotated lambda calculus expression
+--
+-- The tree contains redundant information that can be used by the verifier to
+-- make sure a step didn't go wrong. For example, the type parameter in both
+-- `App` and `Lam` can be fetched as well as derived. They should always match,
+-- and if it doesn't; something went wrong somewhere.
 data Expr
     = Var Ref
     | Lit Literal
-    | App Ty Expr Expr
-    | Lam Ty Ref Expr
+    | App Ty Expr [Expr]
+    | Lam Ty [Ref] Expr
     deriving (Eq, Show)
 
 -- | Top level binding of a lambda calc expression to a name
@@ -66,18 +71,19 @@ argT :: Ty -> Ty
 argT (TArrow ta _) = ta
 argT t             = t
 
--- | Convert a type to a function that returns that type
-uncurry :: Ty -> Ty -> Ty
-uncurry = TArrow
+-- | Make function type out of the arguments and body
+unapply :: Ty -> [Ty] -> Ty
+unapply = foldr TArrow
 
 -- | Apply a type to a function
---    > curry (TArrow [TInt, TBool]) TInt
+--    > apply (TArrow [TInt, TBool]) [TInt]
 --    TBool
-curry :: Ty -> Ty -> Maybe Ty
-curry t (TArrow ta tb)
-  | t == ta = Just tb
+apply :: Ty -> [Ty] -> Maybe Ty
+apply t [] = Just t
+apply (TArrow ta tb) (t: ts)
+  | t == ta = apply tb ts
   | otherwise = Nothing
-curry _ _ = Nothing
+apply _ _ = Nothing
 
 -- * Error handling and state monad
 
@@ -89,7 +95,7 @@ data Error =
   | ParseError ParseError
   | SyntaxError Text
   | UndefinedError Ref
-  | TyError {expr :: Expr, expected :: Ty, reality :: Ty}
+  | TyError -- {expr :: Expr, expected :: Ty, reality :: Ty}
   deriving (Eq, Show)
 
 -- Olifant Monad

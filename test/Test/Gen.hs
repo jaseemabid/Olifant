@@ -17,7 +17,8 @@ tests = testGroup "LLVM Code generator" [vars, fn]
 vars :: TestTree
 vars = testCase "Global variables" $ do
     ir <- readFile "test/Test/global.ll"
-    c "let x = 42; let y = #t; x" >>= \l -> l @?= Right ir
+    c "let i = 1; let j = #t; let f = /a:i b:b.42; f i j"
+      >>= \l -> l @?= Right ir
 
 fn :: TestTree
 fn = testCase "Simple identity function" $ do

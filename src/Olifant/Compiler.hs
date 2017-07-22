@@ -12,7 +12,7 @@ import           Olifant.Core
 
 import qualified Data.Map.Strict as Map
 import           Prelude         (String)
-import           Protolude       hiding (cast, curry, panic, uncurry)
+import           Protolude       hiding (cast, panic)
 
 -- Compiler is an Olifant monad with state set to `Env`
 type Compiler a = Olifant Env a
@@ -51,11 +51,17 @@ cast cs = case unsnoc cs of
     inner (C.Var a)      = return $ Var (Ref a TUnit Local)
     inner (C.Number n)   = return $ Lit (LNumber n)
     inner (C.Bool k)     = return $ Lit (LBool k)
-    inner (C.App fn arg) = App TUnit <$> inner fn <*> inner arg
-    inner (C.Lam n t b)  = inner b >>= \x -> return $ Lam TUnit (Ref n t Local) x
+    inner (C.App fn' args') = do
+        fn <- inner fn'
+        args <- mapM inner args'
+        return $ App TUnit fn args
+    inner (C.Lam args' body')  = do
+        let args = [Ref n t Local | (t, n) <- args']
+        body <- inner body'
+        return $ Lam TUnit args body
     inner (C.Let _ _)    = case cs of
-      [_] -> serr "Body can't be just a let expression"
-      _   -> serr "Nested let expression"
+        [_] -> serr "Body can't be just a let expression"
+        _   -> serr "Nested let expression"
 
 -- Infer types
 --
@@ -64,10 +70,10 @@ infer (Progn decls main) = Progn <$> mapM top decls <*> inner main
   where
     top :: Bind -> Compiler Bind
     top (Bind (Ref n _ _) core) = do
-      core' <- inner core
-      let ref = Ref n (ty core') Global
-      extend n ref
-      return $ Bind ref core'
+        core' <- inner core
+        let ref = Ref n (ty core') Global
+        extend n ref
+        return $ Bind ref core'
 
     inner :: Expr -> Compiler Expr
     inner (Var ref)    = do
@@ -78,18 +84,18 @@ infer (Progn decls main) = Progn <$> mapM top decls <*> inner main
 
     inner l@Lit{} = return l
 
-    inner (App _ fn arg) = do
-        fn' <- inner fn
-        arg' <- inner arg
-        case curry (ty arg') (ty fn') of
-            Just t  -> return $ App t fn' arg'
-            Nothing -> throwError $ TyError arg (argT $ ty fn') (ty arg')
+    inner (App _ fn' args') = do
+        fn <- inner fn'
+        args <- mapM inner args'
+        case apply (ty fn) (map ty args) of
+            Just t  -> return $ App t fn args
+            Nothing -> throwError TyError
 
-    inner (Lam _ arg body) = do
-        extend (rname arg) arg
-        body' <- inner body
-        let t = uncurry (rty arg) (ty body')
-        return $ Lam t arg body'
+    inner (Lam _ args body') = do
+        mapM_ (\arg -> extend (rname arg) arg) args
+        body <- inner body'
+        let t = unapply (ty body) (map rty args)
+        return $ Lam t args body
 
 -- | Rename expression to avoid shadowing
 rename :: Progn -> Compiler Progn
@@ -111,8 +117,10 @@ free (Progn decls main) = concat <$> liftA2 (:) (inner main) (mapM top decls)
     inner :: Expr -> Compiler [Ref]
     inner (Var  ref) = maybeToList <$> fetch (rname ref)
     inner Lit{} = return []
-    inner (App _t fn exp') = return (++) <*> inner fn <*> inner exp'
-    inner (Lam _fn arg body) = modify (Map.insert (rname arg) arg) >> inner body
+    inner (App _t fn args) = return (++) <*> inner fn <*> concatMapM inner args
+    inner (Lam _fn args body) = do
+        mapM_ (\arg -> modify (Map.insert (rname arg) arg)) args
+        inner body
 
 -- * Aliases to errors raised by the compiler
 

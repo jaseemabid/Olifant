@@ -22,8 +22,8 @@ t1 = testCase "Identity function" $
     source = "let id = /k:i.k; id 42"
 
     progn :: Progn
-    progn = Progn [Bind (Ref "id" id Global) $ Lam id (Ref "k" TInt Local) (v "k")]
-      (App TInt (Var $ Ref "id" id Global) (n 42))
+    progn = Progn [Bind (Ref "id" id Global) $ Lam id [Ref "k" TInt Local] (v "k")]
+      (App TInt (Var $ Ref "id" id Global) [n 42])
 
     id :: Ty
     id = TArrow TInt TInt
@@ -36,8 +36,8 @@ t2 = testCase "Const function" $
     source = "let c = /x:i.1; c 42"
 
     progn :: Progn
-    progn = Progn [Bind (Ref "c" id Global) $ Lam id (Ref "x" TInt Local) (n 1)]
-      (App TInt (Var $ Ref "c" id Global) (n 42))
+    progn = Progn [Bind (Ref "c" id Global) $ Lam id [Ref "x" TInt Local] (n 1)]
+      (App TInt (Var $ Ref "c" id Global) [n 42])
 
     id :: Ty
     id = TArrow TInt TInt

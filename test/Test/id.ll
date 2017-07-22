@@ -8,7 +8,7 @@ entry:
   ret i64 %x
 }
 
-define i64 @main(i64 %_) {
+define i64 @main() {
 entry:
   %0 = call i64 @id(i64 1)
   %1 = call i64 @printi(i64 %0)
