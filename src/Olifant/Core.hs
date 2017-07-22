@@ -25,9 +25,6 @@ data Scope = Local | Global
 data Ref = Ref {rname :: Text, rty :: Ty, scope :: Scope}
     deriving (Eq, Ord, Show)
 
-data Literal = LNumber Int | LBool Bool
-    deriving (Eq, Show)
-
 -- [TODO] - Replace TArrow with ~>
 data Ty = TUnit | TInt | TBool | TArrow Ty Ty
     deriving (Eq, Ord, Show)
@@ -40,7 +37,8 @@ data Ty = TUnit | TInt | TBool | TArrow Ty Ty
 -- and if it doesn't; something went wrong somewhere.
 data Expr
     = Var Ref
-    | Lit Literal
+    | Number Int
+    | Bool Bool
     | App Ty Expr [Expr]
     | Lam Ty [Ref] Expr
     deriving (Eq, Show)
@@ -56,8 +54,8 @@ data Progn = Progn [Bind] Expr
 -- * Type helpers
 ty :: Expr -> Ty
 ty (Var (Ref _ t _)) = t
-ty (Lit (LNumber _)) = TInt
-ty (Lit (LBool _))   = TBool
+ty (Number _) = TInt
+ty (Bool _)   = TBool
 ty (App t _ _)       = t
 ty (Lam t _ _)       = t
 
@@ -145,9 +143,9 @@ instance D Ty where
 
 instance D Expr where
     p (Var ref)           = p ref
-    p (Lit (LNumber n))   = int n
-    p (Lit (LBool True))  = "#t"
-    p (Lit (LBool False)) = "#t"
+    p (Number n)   = int n
+    p (Bool True)  = "#t"
+    p (Bool False) = "#t"
     p (App _ f e)         = p f <+> p e
     p (Lam _ r e)         = lambda <> p r <> dot <> p e
 

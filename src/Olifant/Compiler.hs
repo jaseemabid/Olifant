@@ -49,8 +49,8 @@ cast cs = case unsnoc cs of
     -- | Translate a nested expression
     inner :: C.Calculus -> Compiler Expr
     inner (C.Var a)      = return $ Var (Ref a TUnit Local)
-    inner (C.Number n)   = return $ Lit (LNumber n)
-    inner (C.Bool k)     = return $ Lit (LBool k)
+    inner (C.Number n)   = return $ Number n
+    inner (C.Bool k)     = return $ Bool k
     inner (C.App fn' args') = do
         fn <- inner fn'
         args <- mapM inner args'
@@ -82,7 +82,8 @@ infer (Progn decls main) = Progn <$> mapM top decls <*> inner main
       where
         e = throwError $ UndefinedError ref
 
-    inner l@Lit{} = return l
+    inner l@Number{} = return l
+    inner l@Bool{} = return l
 
     inner (App _ fn' args') = do
         fn <- inner fn'
@@ -116,7 +117,8 @@ free (Progn decls main) = concat <$> liftA2 (:) (inner main) (mapM top decls)
 
     inner :: Expr -> Compiler [Ref]
     inner (Var  ref) = maybeToList <$> fetch (rname ref)
-    inner Lit{} = return []
+    inner Bool{} = return []
+    inner Number{} = return []
     inner (App _t fn args) = return (++) <*> inner fn <*> concatMapM inner args
     inner (Lam _fn args body) = do
         mapM_ (\arg -> modify (Map.insert (rname arg) arg)) args

@@ -227,21 +227,6 @@ top :: Bind -> Codegen Operand
 -- | A top level variable could be an alias, but its an error for now
 top (Bind _ (Var ref)) = err $ "Top level alias " <> rname ref
 
--- | Add a constant global variable
-top (Bind ref lit@(Lit _val)) = do
-    op@(ConstantOperand value') <- inner lit
-
-    define $ global' value'
-    return op
-
-  where
-    global' :: Constant -> Global
-    global' val = globalVariableDefaults
-      { name = Name $ toShort $ toS $ rname ref
-      , initializer = Just val
-      , type' = native $ ty lit
-      }
-
 -- | Top level lambda expression
 top (Bind n (Lam t refs body)) = do
     -- [TODO] - Localize this computation
@@ -268,6 +253,20 @@ top (Bind n (Lam t refs body)) = do
 
 top (Bind r App{}) = err $ "Top level function call " <> rname r
 
+-- | Add a constant global variable
+top (Bind ref lit) = do
+    op@(ConstantOperand value') <- inner lit
+    define $ global' value'
+    return op
+
+  where
+    global' :: Constant -> Global
+    global' val = globalVariableDefaults
+      { name = Name $ toShort $ toS $ rname ref
+      , initializer = Just val
+      , type' = native $ ty lit
+      }
+
 -- | Generate code for an expression not at the top level
 --
 -- Inner should return an operand, which is the LHS of the operand it just dealt
@@ -281,9 +280,9 @@ inner (Var (Ref n t Local)) = return $ local t n
 inner (Var (Ref n t Global)) = load t $ externf t n
 
 -- | Make a constant operand out of the constant
-inner (Lit (LNumber n)) = return $ ConstantOperand $ Int 64 (toInteger n)
-inner (Lit (LBool True)) = return $ ConstantOperand $ Int 1 1
-inner (Lit (LBool False)) = return $ ConstantOperand $ Int 1 0
+inner (Number n) = return $ ConstantOperand $ Int 64 (toInteger n)
+inner (Bool True) = return $ ConstantOperand $ Int 1 1
+inner (Bool False) = return $ ConstantOperand $ Int 1 0
 
 -- | Apply function by name
 inner (App _t (Var (Ref n t Global)) vals) = do

@@ -23,7 +23,7 @@ t1 = testCase "Identity function" $
 
     progn :: Progn
     progn = Progn [Bind (Ref "id" id Global) $ Lam id [Ref "k" TInt Local] (v "k")]
-      (App TInt (Var $ Ref "id" id Global) [n 42])
+      (App TInt (Var $ Ref "id" id Global) [Number 42])
 
     id :: Ty
     id = TArrow TInt TInt
@@ -36,8 +36,8 @@ t2 = testCase "Const function" $
     source = "let c = /x:i.1; c 42"
 
     progn :: Progn
-    progn = Progn [Bind (Ref "c" id Global) $ Lam id [Ref "x" TInt Local] (n 1)]
-      (App TInt (Var $ Ref "c" id Global) [n 42])
+    progn = Progn [Bind (Ref "c" id Global) $ Lam id [Ref "x" TInt Local] (Number 1)]
+      (App TInt (Var $ Ref "c" id Global) [Number 42])
 
     id :: Ty
     id = TArrow TInt TInt
@@ -47,9 +47,6 @@ zombie = testCase "Find undefined variables" $ do
     c "/x.p"    @?= Left (UndefinedError "p")
     c "/x.f 42" @?= Left (UndefinedError "f")
     c "let f = id; /x.f 42" @?= Left (UndefinedError "id")
-
-n :: Int -> Expr
-n n' = Lit (LNumber n')
 
 r :: Text -> Ref
 r t = Ref t TInt Local
