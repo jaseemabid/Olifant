@@ -69,6 +69,11 @@ argT :: Ty -> Ty
 argT (TArrow ta _) = ta
 argT t             = t
 
+-- | Arguments of a type
+arity :: Ty -> Int
+arity (TArrow _ t) = 1 + arity t
+arity _             = 0
+
 -- | Make function type out of the arguments and body
 unapply :: Ty -> [Ty] -> Ty
 unapply = foldr TArrow

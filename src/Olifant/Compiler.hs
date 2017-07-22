@@ -88,6 +88,9 @@ infer (Progn decls main) = Progn <$> mapM top decls <*> inner main
     inner (App _ fn' args') = do
         fn <- inner fn'
         args <- mapM inner args'
+
+        when (arity (ty fn) /= length args) $ throwError TyError
+
         case apply (ty fn) (map ty args) of
             Just t  -> return $ App t fn args
             Nothing -> throwError TyError

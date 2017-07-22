@@ -12,7 +12,7 @@ import Test.Tasty
 import Test.Tasty.HUnit
 
 tests :: TestTree
-tests = testGroup "Compiler" [t1, t2, zombie]
+tests = testGroup "Compiler" [t1, t2, t3, zombie]
 
 t1 :: TestTree
 t1 = testCase "Identity function" $
@@ -42,11 +42,22 @@ t2 = testCase "Const function" $
     id :: Ty
     id = TArrow TInt TInt
 
+t3 :: TestTree
+t3 = testCaseSteps "Ensure arity" $ \step -> do
+
+  step "Fewer arguments"
+  c "let f = /a:i b:i.0; f 1" @?= Left TyError
+
+  step "Surplus arguments"
+  c "let f = /a:i b:i.0; f 1 2 3" @?= Left TyError
+
 zombie :: TestTree
 zombie = testCase "Find undefined variables" $ do
     c "/x.p"    @?= Left (UndefinedError "p")
     c "/x.f 42" @?= Left (UndefinedError "f")
     c "let f = id; /x.f 42" @?= Left (UndefinedError "id")
+
+-- Helpers
 
 r :: Text -> Ref
 r t = Ref t TInt Local
