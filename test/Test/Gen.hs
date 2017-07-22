@@ -12,7 +12,7 @@ import Test.Tasty
 import Test.Tasty.HUnit
 
 tests :: TestTree
-tests = testGroup "LLVM Code generator" [vars, fn]
+tests = testGroup "LLVM Code generator" [vars, fn, shadow]
 
 vars :: TestTree
 vars = testCase "Global variables" $ do
@@ -24,6 +24,10 @@ fn :: TestTree
 fn = testCase "Simple identity function" $ do
      ir <- readFile "test/Test/id.ll"
      c "let id = /x:i.x; id 1" >>= \l -> l @?= Right ir
+
+shadow :: TestTree
+shadow = testCase "Shadow variables" $
+    c "let a = 1; let f = /a:i.a; f a" >>= \l -> l @?= Right "~"
 
 c :: Text -> IO (Either Error Text)
 c t = gen m
