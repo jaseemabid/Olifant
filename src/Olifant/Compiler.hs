@@ -12,10 +12,10 @@ import qualified Data.Map.Strict as Map
 import           Prelude         (String)
 import           Protolude       hiding (cast, panic)
 
--- Compiler is an Olifant monad with state set to `Env`
+-- | Compiler is an Olifant monad with state set to `Env`
 type Compiler a = Olifant Env a
 
--- Env maps textual representation to a refined reference
+-- | Env maps textual representation to a refined reference
 type Env = Map Text Ref
 
 -- | Top level API of the module
@@ -70,7 +70,11 @@ cast cs =
     ref :: Text -> Ref
     ref n = Ref n TUnit Unit
 
--- Infer types
+-- | Rename core to avoid shadowing
+rename :: Progn -> Compiler Progn
+rename = return
+
+-- | Infer types
 --
 infer :: Progn -> Compiler Progn
 infer (Progn decls main) = Progn <$> mapM top decls <*> inner main
@@ -102,10 +106,6 @@ infer (Progn decls main) = Progn <$> mapM top decls <*> inner main
         let t = unapply (ty body) (map rty args)
         return $ Lam t args body
 
--- | Rename expression to avoid shadowing
-rename :: Progn -> Compiler Progn
-rename = return
-
 -- | Verify the core
 --
 -- 1. Ensure redundant types match
@@ -128,8 +128,11 @@ free (Progn decls main) = concat <$> liftA2 (:) (inner main) (mapM top decls)
         inner body
 
 -- * Aliases to errors raised by the compiler
+--
+-- | Throw a SyntaxError
 serr :: Text -> Compiler a
 serr = throwError . SyntaxError
 
+-- | Halt and catch fire
 panic :: Text -> Compiler a
 panic = throwError . Panic
