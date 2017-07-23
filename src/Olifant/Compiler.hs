@@ -30,24 +30,27 @@ fetch t = Map.lookup t <$> get
 extend :: Text -> Ref -> Compiler ()
 extend t r = modify $ Map.insert t r
 
--- | Transform calculus into untyped core
+-- | Transform calculus into untyped, unscoped core
 --
--- Input program should be a series of let bindings and one expression in the
--- end. Validate structure of the program and fill TUnit types
+-- 1. Validate structure of the program; it should be a series of let bindings
+-- and one expression in the end
+-- 2. Fill all types `TUnit`
+-- 3. Set all scopes to `Unit`
+--
 cast :: [Calculus] -> Compiler Progn
 cast cs =
     case unsnoc cs of
         Just (decls, main) -> Progn <$> mapM top decls <*> inner main
         Nothing            -> serr $ toS (show cs :: String)
   where
-    -- | Translate a top level expression
+    -- Translate a top level expression
     top :: Calculus -> Compiler Bind
-    top (CLet var val) = inner val >>= return . Bind (Ref var TUnit Global)
-
+    top (CLet var val) = inner val >>= return . Bind (ref var)
     top l = serr $ "Expected let expression, got " <> show l <> " instead"
-    -- | Translate a nested expression
+
+    -- Translate a nested expression
     inner :: Calculus -> Compiler Expr
-    inner (CVar a) = return $ Var (Ref a TUnit Local)
+    inner (CVar a) = return $ Var (ref a)
     inner (CNumber n) = return $ Number n
     inner (CBool k) = return $ Bool k
     inner (CApp fn' args') = do
@@ -55,13 +58,17 @@ cast cs =
         args <- mapM inner args'
         return $ App TUnit fn args
     inner (CLam args' body') = do
-        let args = [Ref n t Local | (t, n) <- args']
+        let args = [Ref n t Unit | (t, n) <- args']
         body <- inner body'
         return $ Lam TUnit args body
     inner (CLet _ _) =
         case cs of
             [_] -> serr "Body can't be just a let expression"
             _   -> serr "Nested let expression"
+
+    -- All references except function arguments
+    ref :: Text -> Ref
+    ref n = Ref n TUnit Unit
 
 -- Infer types
 --
