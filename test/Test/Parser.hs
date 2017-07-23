@@ -17,7 +17,7 @@ import Test.Tasty.HUnit
 
 tests :: TestTree
 tests = testGroup "Parser" [literals, lam, combinators, application,
-                            lett, ll, alias]
+                            lett, ll, alias, inline]
 
 literals :: TestTree
 literals = testCase "Literal numbers, identifiers and booleans" $ do
@@ -84,6 +84,10 @@ ll = testCase "Handle sequences of expressions" $ do
   where
     a = Number 1
     x = (TUnit, "x")
+
+inline :: TestTree
+inline = testCase "Support inline operators" $
+  expect "let f = /a:i b:i.a + b; f 1 2" []
 
 -- * Helper functions
 
