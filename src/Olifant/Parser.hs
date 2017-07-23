@@ -1,9 +1,8 @@
------------------------------------------------------------------------------
--- |
--- Module      :  Olifant.Parser
+{-|
+Module      : Olifant.Parser
+Description : First phase of the compilation
+-}
 --
------------------------------------------------------------------------------
-
 -- It's ok to throw away results of do notation in a parser. Disable the warning
 {-# OPTIONS_GHC -fno-warn-unused-do-bind #-}
 
@@ -24,7 +23,6 @@ import Text.Parsec
 -- @ParsecT s u m ui@ is a parser with stream type s, user state type u,
 -- underlying monad m and return type a. Parsec is strict in the user state.
 --
-
 -- | Special symbols
 specials :: String
 specials = [':', 'λ', '#', '\\', '/', ';', '\n']
@@ -38,20 +36,25 @@ number :: Parsec Text st Calculus
 number = Number <$> p
   where
     p :: Parsec Text st Int
-    p = try $ do
-        sign <- option ' ' (char '-')
-        d <- read <$> many1 digit
-        return $ if sign == '-' then negate d else d
+    p =
+        try $ do
+            sign <- option ' ' (char '-')
+            d <- read <$> many1 digit
+            return $
+                if sign == '-'
+                    then negate d
+                    else d
 
 --- | Parse a type
 ty :: Parsec Text st Ty
 ty = do
     t <- optionMaybe $ try (char ':') *> (char 'i' <|> char 'b')
-    return $ case t of
-        Just 'b' -> TBool
-        Just 'i' -> TInt
-        Just _   -> TUnit
-        Nothing  -> TUnit
+    return $
+        case t of
+            Just 'b' -> TBool
+            Just 'i' -> TInt
+            Just _   -> TUnit
+            Nothing  -> TUnit
 
 -- | Parse scheme style boolean
 --
@@ -92,7 +95,9 @@ bind = do
 
 -- | A term, which is anything except lambda application
 term :: Parsec Text st Calculus
-term = bind <|> lambda <|> symbol <|> bool <|> number <|> (char '(' *> term <* char ')')
+term =
+    bind <|> lambda <|> symbol <|> bool <|> number <|>
+    (char '(' *> term <* char ')')
 
 -- Calculus
 calculus :: Parsec Text st Calculus
@@ -101,7 +106,7 @@ calculus = do
     as <- many (spaces *> term <* spaces)
     case as of
         [] -> return f
-        _ -> return $ App f as
+        _  -> return $ App f as
 
 parser :: Parsec Text st [Calculus]
 parser = calculus `sepEndBy1` sep <* eof
@@ -114,6 +119,6 @@ parser = calculus `sepEndBy1` sep <* eof
 parse :: Text -> Either Error [Calculus]
 parse "" = Right []
 parse input =
-    case runP parser ()  "" (strip input) of
+    case runP parser () "" (strip input) of
         Left err  -> Left $ ParseError err
         Right val -> Right val

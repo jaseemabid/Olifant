@@ -2,7 +2,6 @@
 Module      : Olifant.Core
 Description : Core data structures of the compiler
 -}
-
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE TypeSynonymInstances       #-}
@@ -16,17 +15,26 @@ import Text.PrettyPrint
 
 --  - https://ghc.haskell.org/trac/ghc/wiki/Commentary/Compiler/CoreSynType
 --  - http://blog.ezyang.com/2013/05/the-ast-typing-problem/
-
 -- | Code generator treats local and global variables differently
-data Scope = Local | Global
-  deriving (Eq, Ord, Show)
-
--- | A reference; an embedded data structure avoids the need for a symbol table
-data Ref = Ref {rname :: Text, rty :: Ty, scope :: Scope}
+data Scope
+    = Local
+    | Global
     deriving (Eq, Ord, Show)
 
+-- | A reference; an embedded data structure avoids the need for a symbol table
+data Ref = Ref
+    { rname :: Text
+    , rty   :: Ty
+    , scope :: Scope
+    } deriving (Eq, Ord, Show)
+
 -- [TODO] - Replace TArrow with ~>
-data Ty = TUnit | TInt | TBool | TArrow Ty Ty
+data Ty
+    = TUnit
+    | TInt
+    | TBool
+    | TArrow Ty
+             Ty
     deriving (Eq, Ord, Show)
 
 -- | An annotated lambda calculus expression
@@ -39,23 +47,31 @@ data Expr
     = Var Ref
     | Number Int
     | Bool Bool
-    | App Ty Expr [Expr]
-    | Lam Ty [Ref] Expr
+    | App Ty
+          Expr
+          [Expr]
+    | Lam Ty
+          [Ref]
+          Expr
     deriving (Eq, Show)
 
 -- | Top level binding of a lambda calc expression to a name
-data Bind = Bind Ref Expr
-  deriving (Eq, Show)
+data Bind =
+    Bind Ref
+         Expr
+    deriving (Eq, Show)
 
 -- | A program is a list of bindings and an expression
-data Progn = Progn [Bind] Expr
-  deriving (Eq, Show)
+data Progn =
+    Progn [Bind]
+          Expr
+    deriving (Eq, Show)
 
 -- * Type helpers
 ty :: Expr -> Ty
 ty (Var (Ref _ t _)) = t
-ty (Number _) = TInt
-ty (Bool _)   = TBool
+ty (Number _)        = TInt
+ty (Bool _)          = TBool
 ty (App t _ _)       = t
 ty (Lam t _ _)       = t
 
@@ -72,7 +88,7 @@ argT t             = t
 -- | Arguments of a type
 arity :: Ty -> Int
 arity (TArrow _ t) = 1 + arity t
-arity _             = 0
+arity _            = 0
 
 -- | Make function type out of the arguments and body
 unapply :: Ty -> [Ty] -> Ty
@@ -83,23 +99,22 @@ unapply = foldr TArrow
 --    TBool
 apply :: Ty -> [Ty] -> Maybe Ty
 apply t [] = Just t
-apply (TArrow ta tb) (t: ts)
-  | t == ta = apply tb ts
-  | otherwise = Nothing
+apply (TArrow ta tb) (t:ts)
+    | t == ta = apply tb ts
+    | otherwise = Nothing
 apply _ _ = Nothing
 
 -- * Error handling and state monad
-
 -- | Errors raised by the compiler
 --
-data Error =
-    GenError Text
-  | Panic Text
-  | ParseError ParseError
-  | SyntaxError Text
-  | UndefinedError Ref
-  | TyError -- {expr :: Expr, expected :: Ty, reality :: Ty}
-  deriving (Eq, Show)
+data Error
+    = GenError Text
+    | Panic Text
+    | ParseError ParseError
+    | SyntaxError Text
+    | UndefinedError Ref
+    | TyError -- {expr :: Expr, expected :: Ty, reality :: Ty}
+    deriving (Eq, Show)
 
 -- Olifant Monad
 --
@@ -117,7 +132,6 @@ execM :: Olifant s a -> s -> Either Error s
 execM c s = runIdentity $ runExceptT $ execStateT (runOlifant c) s
 
 -- * Instance declarations
-
 instance IsString Ref where
     fromString x = Ref (toS x) TUnit Local
 
@@ -125,12 +139,14 @@ instance IsString Ref where
 --
 -- These functions are in core to avoid circular dependency between core and
 -- pretty printer module.
-
 arrow, dot, lambda, lett :: Doc
-arrow   = char '→'
-lambda  = char 'λ'
-dot     = char '.'
-lett    = text "let"
+arrow = char '→'
+
+lambda = char 'λ'
+
+dot = char '.'
+
+lett = text "let"
 
 class D a where
     p :: a -> Doc
@@ -147,12 +163,12 @@ instance D Ty where
     p (TArrow ta tb) = p ta <> arrow <> p tb
 
 instance D Expr where
-    p (Var ref)           = p ref
+    p (Var ref)    = p ref
     p (Number n)   = int n
     p (Bool True)  = "#t"
     p (Bool False) = "#t"
-    p (App _ f e)         = p f <+> p e
-    p (Lam _ r e)         = lambda <> p r <> dot <> p e
+    p (App _ f e)  = p f <+> p e
+    p (Lam _ r e)  = lambda <> p r <> dot <> p e
 
 -- [TODO] - Add type to pretty printed version of let binding
 instance D Bind where

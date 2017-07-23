@@ -2,7 +2,6 @@
 Module      : Olifant.Compiler
 Description : Compile Calculus to Core
 -}
-
 {-# LANGUAGE OverloadedStrings #-}
 
 module Olifant.Compiler where
@@ -37,31 +36,32 @@ extend t r = modify $ Map.insert t r
 -- Input program should be a series of let bindings and one expression in the
 -- end. Validate structure of the program and fill TUnit types
 cast :: [C.Calculus] -> Compiler Progn
-cast cs = case unsnoc cs of
-    Just (decls, main) -> Progn <$> mapM top decls <*> inner main
-    Nothing            -> serr $ toS (show cs :: String)
+cast cs =
+    case unsnoc cs of
+        Just (decls, main) -> Progn <$> mapM top decls <*> inner main
+        Nothing            -> serr $ toS (show cs :: String)
   where
     -- | Translate a top level expression
     top :: C.Calculus -> Compiler Bind
     top (C.Let var val) = inner val >>= return . Bind (Ref var TUnit Global)
     top l = serr $ "Expected let expression, got " <> show l <> " instead"
-
     -- | Translate a nested expression
     inner :: C.Calculus -> Compiler Expr
-    inner (C.Var a)      = return $ Var (Ref a TUnit Local)
-    inner (C.Number n)   = return $ Number n
-    inner (C.Bool k)     = return $ Bool k
+    inner (C.Var a) = return $ Var (Ref a TUnit Local)
+    inner (C.Number n) = return $ Number n
+    inner (C.Bool k) = return $ Bool k
     inner (C.App fn' args') = do
         fn <- inner fn'
         args <- mapM inner args'
         return $ App TUnit fn args
-    inner (C.Lam args' body')  = do
+    inner (C.Lam args' body') = do
         let args = [Ref n t Local | (t, n) <- args']
         body <- inner body'
         return $ Lam TUnit args body
-    inner (C.Let _ _)    = case cs of
-        [_] -> serr "Body can't be just a let expression"
-        _   -> serr "Nested let expression"
+    inner (C.Let _ _) =
+        case cs of
+            [_] -> serr "Body can't be just a let expression"
+            _   -> serr "Nested let expression"
 
 -- Infer types
 --
@@ -74,27 +74,21 @@ infer (Progn decls main) = Progn <$> mapM top decls <*> inner main
         let ref = Ref n (ty core') Global
         extend n ref
         return $ Bind ref core'
-
     inner :: Expr -> Compiler Expr
-    inner (Var ref)    = do
+    inner (Var ref) = do
         ref' <- fetch $ rname ref
         maybe e (return . Var) ref'
       where
         e = throwError $ UndefinedError ref
-
-    inner l@Number{} = return l
-    inner l@Bool{} = return l
-
+    inner l@Number {} = return l
+    inner l@Bool {} = return l
     inner (App _ fn' args') = do
         fn <- inner fn'
         args <- mapM inner args'
-
         when (arity (ty fn) /= length args) $ throwError TyError
-
         case apply (ty fn) (map ty args) of
             Just t  -> return $ App t fn args
             Nothing -> throwError TyError
-
     inner (Lam _ args body') = do
         mapM_ (\arg -> extend (rname arg) arg) args
         body <- inner body'
@@ -117,18 +111,16 @@ free (Progn decls main) = concat <$> liftA2 (:) (inner main) (mapM top decls)
   where
     top :: Bind -> Compiler [Ref]
     top (Bind ref val) = put (Map.singleton (rname ref) ref) >> inner val
-
     inner :: Expr -> Compiler [Ref]
-    inner (Var  ref) = maybeToList <$> fetch (rname ref)
-    inner Bool{} = return []
-    inner Number{} = return []
+    inner (Var ref) = maybeToList <$> fetch (rname ref)
+    inner Bool {} = return []
+    inner Number {} = return []
     inner (App _t fn args) = return (++) <*> inner fn <*> concatMapM inner args
     inner (Lam _fn args body) = do
         mapM_ (\arg -> modify (Map.insert (rname arg) arg)) args
         inner body
 
 -- * Aliases to errors raised by the compiler
-
 serr :: Text -> Compiler a
 serr = throwError . SyntaxError
 
