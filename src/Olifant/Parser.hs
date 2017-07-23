@@ -8,8 +8,7 @@ Description : First phase of the compilation
 
 module Olifant.Parser where
 
-import Olifant.Calculus
-import Olifant.Core     (Error (..), Ty (..))
+import Olifant.Core     (Error (..), Ty (..), Calculus(..))
 
 import Prelude   (Char, String, read)
 import Protolude hiding (bool, many, try, (<|>))
@@ -33,7 +32,7 @@ sep = char ';' <|> newline <|> (eof *> return ';')
 
 -- | Parse a signed integer
 number :: Parsec Text st Calculus
-number = Number <$> p
+number = CNumber <$> p
   where
     p :: Parsec Text st Int
     p =
@@ -60,7 +59,7 @@ ty = do
 --
 -- Try is required on the left side of <|> to prevent eagerly consuming #
 bool :: Parsec Text st Calculus
-bool = Bool . (== "#t") <$> (try (string "#t") <|> string "#f")
+bool = CBool . (== "#t") <$> (try (string "#t") <|> string "#f")
 
 -- | Parse an identifier
 identifier :: Parsec Text st Text
@@ -68,7 +67,7 @@ identifier = toS <$> many1 (satisfy $ \c -> isAlpha c && (c `notElem` specials))
 
 -- | Parse a word as an identifier
 symbol :: Parsec Text st Calculus
-symbol = Var <$> identifier
+symbol = CVar <$> identifier
 
 -- | Parse expressions of the form @\x.x@
 lambda :: Parsec Text st Calculus
@@ -77,7 +76,7 @@ lambda = do
     ps <- sepEndBy1 param (many1 space)
     char '.'
     body <- calculus
-    return $ Lam ps body
+    return $ CLam ps body
   where
     param :: Parsec Text st (Ty, Text)
     param = do
@@ -91,7 +90,7 @@ bind = do
     var <- spaces *> identifier <* spaces
     char '='
     val <- many1 space *> term <* spaces
-    return $ Let var val
+    return $ CLet var val
 
 -- | A term, which is anything except lambda application
 term :: Parsec Text st Calculus
@@ -106,7 +105,7 @@ calculus = do
     as <- many (spaces *> term <* spaces)
     case as of
         [] -> return f
-        _  -> return $ App f as
+        _  -> return $ CApp f as
 
 parser :: Parsec Text st [Calculus]
 parser = calculus `sepEndBy1` sep <* eof

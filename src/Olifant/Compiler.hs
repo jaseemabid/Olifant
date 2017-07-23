@@ -6,7 +6,6 @@ Description : Compile Calculus to Core
 
 module Olifant.Compiler where
 
-import qualified Olifant.Calculus as C
 import           Olifant.Core
 
 import qualified Data.Map.Strict as Map
@@ -20,7 +19,7 @@ type Compiler a = Olifant Env a
 type Env = Map Text Ref
 
 -- | Top level API of the module
-compile :: [C.Calculus] -> Either Error Progn
+compile :: [Calculus] -> Either Error Progn
 compile ls = evalM (cast ls >>= rename >>= infer >>= verify) mempty
 
 -- | Get type of a reference from the symbol table
@@ -35,30 +34,31 @@ extend t r = modify $ Map.insert t r
 --
 -- Input program should be a series of let bindings and one expression in the
 -- end. Validate structure of the program and fill TUnit types
-cast :: [C.Calculus] -> Compiler Progn
+cast :: [Calculus] -> Compiler Progn
 cast cs =
     case unsnoc cs of
         Just (decls, main) -> Progn <$> mapM top decls <*> inner main
         Nothing            -> serr $ toS (show cs :: String)
   where
     -- | Translate a top level expression
-    top :: C.Calculus -> Compiler Bind
-    top (C.Let var val) = inner val >>= return . Bind (Ref var TUnit Global)
+    top :: Calculus -> Compiler Bind
+    top (CLet var val) = inner val >>= return . Bind (Ref var TUnit Global)
+
     top l = serr $ "Expected let expression, got " <> show l <> " instead"
     -- | Translate a nested expression
-    inner :: C.Calculus -> Compiler Expr
-    inner (C.Var a) = return $ Var (Ref a TUnit Local)
-    inner (C.Number n) = return $ Number n
-    inner (C.Bool k) = return $ Bool k
-    inner (C.App fn' args') = do
+    inner :: Calculus -> Compiler Expr
+    inner (CVar a) = return $ Var (Ref a TUnit Local)
+    inner (CNumber n) = return $ Number n
+    inner (CBool k) = return $ Bool k
+    inner (CApp fn' args') = do
         fn <- inner fn'
         args <- mapM inner args'
         return $ App TUnit fn args
-    inner (C.Lam args' body') = do
+    inner (CLam args' body') = do
         let args = [Ref n t Local | (t, n) <- args']
         body <- inner body'
         return $ Lam TUnit args body
-    inner (C.Let _ _) =
+    inner (CLet _ _) =
         case cs of
             [_] -> serr "Body can't be just a let expression"
             _   -> serr "Nested let expression"

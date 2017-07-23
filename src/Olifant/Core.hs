@@ -1,6 +1,6 @@
 {-|
 Module      : Olifant.Core
-Description : Core data structures of the compiler
+Description : Core languages of the compiler
 -}
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
@@ -13,59 +13,85 @@ import Protolude        hiding ((<>))
 import Text.Parsec      (ParseError)
 import Text.PrettyPrint
 
---  - https://ghc.haskell.org/trac/ghc/wiki/Commentary/Compiler/CoreSynType
---  - http://blog.ezyang.com/2013/05/the-ast-typing-problem/
--- | Code generator treats local and global variables differently
-data Scope
-    = Local
-    | Global
+-- | All the known types
+--
+-- TUnit exists only as a placeholder for earlier partially typed languages. 2
+-- kinds of types are ideal, but that would be so much confusion, name
+-- collisions and boilerplate.
+-- [TODO] - Replace TArrow with ~>
+data Ty
+    = TUnit
+    | TInt
+    | TBool
+    | TArrow Ty Ty
     deriving (Eq, Ord, Show)
 
--- | A reference; an embedded data structure avoids the need for a symbol table
+-- | Calculus, the frontend language
+--
+-- Extremely liberal, partially typed and recursive.
+data Calculus
+    = CVar Text
+    | CNumber Int
+    | CBool Bool
+    | CApp Calculus [Calculus]
+    | CLam [(Ty, Text)] Calculus
+    | CLet Text Calculus
+    deriving (Eq, Show)
+
+-- * The core language
+--
+-- Core is a reasonably verbose IR, suitable enough for most passes. It is
+-- recursive, not perfectly type safe and contains redundant type information in
+-- the AST for the verifier. For example, the type parameter in both `App` and
+-- `Lam` can be fetched as well as derived. They should always match, and if it
+-- doesn't; something went wrong somewhere.
+--
+-- References:
+--
+-- https://ghc.haskell.org/trac/ghc/wiki/Commentary/Compiler/CoreSynType
+-- http://blog.ezyang.com/2013/05/the-ast-typing-problem/
+
+-- | Variable Scope
+--
+-- Code treats local and global variables differently. A scope type with and
+-- without unit can be disambiguate at compile time, but that is for some other
+-- day.
+data Scope = Local | Global | Unit
+    deriving (Eq, Ord, Show)
+
+-- | A reference type
+--
+-- An embedded data structure avoids the need for a symbol table
 data Ref = Ref
     { rname :: Text
     , rty   :: Ty
     , scope :: Scope
     } deriving (Eq, Ord, Show)
 
--- [TODO] - Replace TArrow with ~>
-data Ty
-    = TUnit
-    | TInt
-    | TBool
-    | TArrow Ty
-             Ty
-    deriving (Eq, Ord, Show)
-
--- | An annotated lambda calculus expression
---
--- The tree contains redundant information that can be used by the verifier to
--- make sure a step didn't go wrong. For example, the type parameter in both
--- `App` and `Lam` can be fetched as well as derived. They should always match,
--- and if it doesn't; something went wrong somewhere.
+-- | An inner level value of Core
 data Expr
     = Var Ref
     | Number Int
     | Bool Bool
-    | App Ty
-          Expr
-          [Expr]
-    | Lam Ty
-          [Ref]
-          Expr
+    | App Ty Expr [Expr]
+    | Lam Ty [Ref] Expr
     deriving (Eq, Show)
 
 -- | Top level binding of a lambda calc expression to a name
-data Bind =
-    Bind Ref
-         Expr
+data Bind = Bind Ref Expr
     deriving (Eq, Show)
 
 -- | A program is a list of bindings and an expression
-data Progn =
-    Progn [Bind]
-          Expr
+data Progn = Progn [Bind] Expr
     deriving (Eq, Show)
+
+-- * The machine language
+--
+-- The obvious step before code generation.
+-- 1. SSA, No compound expressions
+-- 2. Not a recursive grammar
+-- 3. Nothing that cant be trivially translated to LLVM
+data Mach = Mach
 
 -- * Type helpers
 ty :: Expr -> Ty
@@ -90,13 +116,14 @@ arity :: Ty -> Int
 arity (TArrow _ t) = 1 + arity t
 arity _            = 0
 
--- | Make function type out of the arguments and body
+-- | Make function type out of the argument types & body type
 unapply :: Ty -> [Ty] -> Ty
 unapply = foldr TArrow
 
 -- | Apply a type to a function
---    > apply (TArrow [TInt, TBool]) [TInt]
---    TBool
+--
+-- > apply (TArrow [TInt, TBool]) [TInt]
+-- > TBool
 apply :: Ty -> [Ty] -> Maybe Ty
 apply t [] = Just t
 apply (TArrow ta tb) (t:ts)
@@ -105,6 +132,7 @@ apply (TArrow ta tb) (t:ts)
 apply _ _ = Nothing
 
 -- * Error handling and state monad
+--
 -- | Errors raised by the compiler
 --
 data Error
@@ -141,18 +169,16 @@ instance IsString Ref where
 -- pretty printer module.
 arrow, dot, lambda, lett :: Doc
 arrow = char '→'
-
 lambda = char 'λ'
-
 dot = char '.'
-
 lett = text "let"
 
 class D a where
     p :: a -> Doc
 
 instance D Ref where
-    p (Ref n t Local)  = text (toS n) <> colon <> p t
+    p (Ref n t Unit)   = char '$' <> text (toS n) <> colon <> p t
+    p (Ref n t Local)  = char '%' <> text (toS n) <> colon <> p t
     p (Ref n t Global) = char '@' <> text (toS n) <> colon <> p t
 
 -- [TODO] - Fix type pretty printer for higher order functions
