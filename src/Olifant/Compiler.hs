@@ -58,7 +58,7 @@ cast cs =
         args <- mapM inner args'
         return $ App TUnit fn args
     inner (CLam args' body') = do
-        let args = [Ref n t Unit | (t, n) <- args']
+        let args = [Ref n 0 t Unit | (t, n) <- args']
         body <- inner body'
         return $ Lam TUnit args body
     inner (CLet _ _) =
@@ -68,7 +68,7 @@ cast cs =
 
     -- All references except function arguments
     ref :: Text -> Ref
-    ref n = Ref n TUnit Unit
+    ref n = Ref n 0 TUnit Unit
 
 -- | Rename core to avoid shadowing
 rename :: Progn -> Compiler Progn
@@ -80,9 +80,9 @@ infer :: Progn -> Compiler Progn
 infer (Progn decls main) = Progn <$> mapM top decls <*> inner main
   where
     top :: Bind -> Compiler Bind
-    top (Bind (Ref n _ _) core) = do
+    top (Bind (Ref n _ _ _) core) = do
         core' <- inner core
-        let ref = Ref n (ty core') Global
+        let ref = Ref n 0 (ty core') Global
         extend n ref
         return $ Bind ref core'
     inner :: Expr -> Compiler Expr

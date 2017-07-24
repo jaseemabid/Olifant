@@ -60,12 +60,11 @@ data Scope = Local | Global | Unit
     deriving (Eq, Ord, Show)
 
 -- | A reference type
---
--- An embedded data structure avoids the need for a symbol table
 data Ref = Ref
-    { rname :: Text
-    , rty   :: Ty
-    , scope :: Scope
+    { rname :: Text   -- ^ User defined name of the variable
+    , ri    :: Int    -- ^ Disambiguate the same name. Eg, a0, a1, a2
+    , rty   :: Ty     -- ^ Type of the reference
+    , rscope :: Scope -- ^ Is the variable local, global or unknown?
     } deriving (Eq, Ord, Show)
 
 -- | An inner level value of Core
@@ -95,7 +94,7 @@ data Mach = Mach
 
 -- * Type helpers
 ty :: Expr -> Ty
-ty (Var (Ref _ t _)) = t
+ty (Var ref) = rty ref
 ty (Number _)        = TInt
 ty (Bool _)          = TBool
 ty (App t _ _)       = t
@@ -161,7 +160,7 @@ execM c s = runIdentity $ runExceptT $ execStateT (runOlifant c) s
 
 -- * Instance declarations
 instance IsString Ref where
-    fromString x = Ref (toS x) TUnit Local
+    fromString x = Ref (toS x) 0 TUnit Unit
 
 -- * Pretty printer
 --
@@ -177,9 +176,9 @@ class D a where
     p :: a -> Doc
 
 instance D Ref where
-    p (Ref n t Unit)   = char '$' <> text (toS n) <> colon <> p t
-    p (Ref n t Local)  = char '%' <> text (toS n) <> colon <> p t
-    p (Ref n t Global) = char '@' <> text (toS n) <> colon <> p t
+    p (Ref n i t Unit)   = char '$' <> text (toS n) <> int i <> colon <> p t
+    p (Ref n i t Local)  = char '%' <> text (toS n) <> int i <> colon <> p t
+    p (Ref n i t Global) = char '@' <> text (toS n) <> int i <> colon <> p t
 
 -- [TODO] - Fix type pretty printer for higher order functions
 instance D Ty where

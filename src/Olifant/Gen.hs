@@ -153,10 +153,10 @@ unnamed t ins = do
 --  - Returns @%foo@
 --
 named :: Ty -> Text -> Instruction -> Codegen Operand
-named t str ins = push (op := ins) >> return (LocalReference (native t) op)
+named t str ins = push (op' := ins) >> return (LocalReference (native t) op')
   where
-    op :: Name
-    op = lname str
+    op' :: Name
+    op' = lname str
 
 -- | Helper function to convert a Text -> ByteString -> ShortByteString -> Name
 lname :: Text -> Name
@@ -186,11 +186,16 @@ terminator :: Operand -> Codegen (Named Terminator)
 terminator result = return $ Do $ Ret (Just result) []
 
 -- * References
--- | Get a reference operand from a string
-local :: Ty -> Text -> Operand
-local t n = LocalReference (native t) $ lname n
+--
+-- | Get an `Operand` operand from a reference
+op :: Ref -> Codegen Operand
+op (Ref n i t Local) = return $ LocalReference (native t) $ lname (n <> show i)
+op (Ref n i t Global) = load t $ externf t (n <> show i)
+op ref@(Ref _ _ _ Unit) =
+  throwError $ GenError $ "Unresolved variable" <> show ref
 
 -- | Get a global reference from a string
+-- [fix] - Merge this with local
 global :: Ty -> Text -> Constant
 global t n = GlobalReference (native t) $ lname n
 
@@ -237,16 +242,16 @@ top (Bind n (Lam t refs body))
             , basicBlocks = [basicBlock instructions term']
             }
     define fn
-    return $ local t $ rname n
+    op n
   where
     params :: [(Type, Name)]
     params = [(native $ rty ref, lname $ rname ref) | ref <- refs]
 top (Bind r App {}) = err $ "Top level function call " <> rname r
 -- | Add a constant global variable
 top (Bind ref lit) = do
-    op@(ConstantOperand value') <- inner lit
+    op'@(ConstantOperand value') <- inner lit
     define $ global' value'
-    return op
+    return op'
   where
     global' :: Constant -> Global
     global' val =
@@ -262,15 +267,13 @@ top (Bind ref lit) = do
 -- with. Inner is free to push instructions to the current block.
 inner :: Expr -> Codegen Operand
 -- | Convert a reference into a local operand.
-inner (Var (Ref n t Local)) = return $ local t n
--- | Use a global variable
-inner (Var (Ref n t Global)) = load t $ externf t n
+inner (Var ref) = op ref
 -- | Make a constant operand out of the constant
 inner (Number n) = return $ ConstantOperand $ Int 64 (toInteger n)
 inner (Bool True) = return $ ConstantOperand $ Int 1 1
 inner (Bool False) = return $ ConstantOperand $ Int 1 0
 -- | Apply function by name
-inner (App _t (Var (Ref n t Global)) vals) = do
+inner (App _t (Var (Ref n _ t Global)) vals) = do
     args' <- mapM inner vals
     let args'' = [(arg, []) | arg <- args'] :: [(Operand, [ParameterAttribute])]
     unnamed (retT t) $ Call Nothing C [] fn args'' [] []
@@ -297,9 +300,9 @@ genm prog = execM (run prog) genState >>= return . mod
         tt :: Ty
         tt = TArrow TInt TInt
         printi :: Expr
-        printi = Var $ Ref "printi" tt Global
+        printi = Var $ Ref "printi" 0 tt Global
         -- [TODO] - This is a terrible approximation
-        main = Bind (Ref "main" TInt Global) (Lam TInt [] (App TInt printi [e]))
+        main = Bind (Ref "main" 0 TInt Global) (Lam TInt [] (App TInt printi [e]))
 
 -- | Tweak passes of LLVM compiler
 --
