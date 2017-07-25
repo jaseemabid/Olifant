@@ -8,7 +8,7 @@ Description : First phase of the compilation
 
 module Olifant.Parser where
 
-import Olifant.Core     (Error (..), Ty (..), Calculus(..))
+import Olifant.Core hiding (lambda)
 
 import Prelude   (Char, String, read)
 import Protolude hiding (bool, many, try, (<|>))
@@ -30,36 +30,31 @@ specials = [':', 'λ', '#', '\\', '/', ';', '\n']
 sep :: Parsec Text st Char
 sep = char ';' <|> newline <|> (eof *> return ';')
 
--- | Parse a signed integer
-number :: Parsec Text st Calculus
-number = CNumber <$> p
-  where
-    p :: Parsec Text st Int
-    p =
-        try $ do
-            sign <- option ' ' (char '-')
-            d <- read <$> many1 digit
-            return $
-                if sign == '-'
-                    then negate d
-                    else d
-
---- | Parse a type
+-- | Parse a type
 ty :: Parsec Text st Ty
 ty = do
     t <- optionMaybe $ try (char ':') *> (char 'i' <|> char 'b')
-    return $
-        case t of
-            Just 'b' -> TBool
-            Just 'i' -> TInt
-            Just _   -> TUnit
-            Nothing  -> TUnit
+    return $ case t of
+        Just 'b' -> TBool
+        Just 'i' -> TInt
+        Just _   -> TUnit
+        Nothing  -> TUnit
+
+-- | Parse a signed integer
+number :: Parsec Text st Calculus
+number = CLit . Number <$> ps
+  where
+    ps :: Parsec Text st Int
+    ps = try $ do
+      sign <- option ' ' (char '-')
+      d <- read <$> many1 digit
+      return $ if sign == '-' then negate d else d
 
 -- | Parse scheme style boolean
 --
 -- Try is required on the left side of <|> to prevent eagerly consuming #
 bool :: Parsec Text st Calculus
-bool = CBool . (== "#t") <$> (try (string "#t") <|> string "#f")
+bool = CLit . Bool . (== "#t") <$> (try (string "#t") <|> string "#f")
 
 -- | Parse an identifier
 identifier :: Parsec Text st Text
@@ -69,6 +64,9 @@ identifier = toS <$> many1 (satisfy $ \c -> isAlpha c && (c `notElem` specials))
 symbol :: Parsec Text st Calculus
 symbol = CVar <$> identifier
 
+-- [TODO] - Add support for Haskell style type declaration
+-- [TODO] - Treat type declarations without body as extern
+
 -- | Parse expressions of the form @\x.x@
 lambda :: Parsec Text st Calculus
 lambda = do
@@ -76,7 +74,7 @@ lambda = do
     ps <- sepEndBy1 param (many1 space)
     char '.'
     body <- calculus
-    return $ CLam ps body
+    return $ CLam "λ" ps body
   where
     param :: Parsec Text st (Ty, Text)
     param = do
@@ -84,13 +82,16 @@ lambda = do
         t <- ty
         return (t, arg)
 
+-- [TODO] - Drop the let for Haskell style fn definitions
 bind :: Parsec Text st Calculus
 bind = do
     try $ string "let"
     var <- spaces *> identifier <* spaces
     char '='
     val <- many1 space *> term <* spaces
-    return $ CLet var val
+    case val of
+      CLam _name as body -> return $ CLet var (CLam var as body)
+      _ -> return $ CLet var val
 
 -- | A term, which is anything except lambda application
 term :: Parsec Text st Calculus

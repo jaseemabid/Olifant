@@ -1,10 +1,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Test.Compiler
-    ( tests
-    ) where
+module Test.Compiler (tests) where
 
-import Protolude hiding (cast)
+import Protolude
 
 import Olifant.Compiler (compile)
 import Olifant.Core
@@ -14,61 +12,84 @@ import Test.Tasty
 import Test.Tasty.HUnit
 
 tests :: TestTree
-tests = testGroup "Compiler" [t1, t2, t3, zombie]
+tests = testGroup "Compiler" [t1, t2, t3, zombie, global]
 
 t1 :: TestTree
-t1 = testCase "Identity function" $ c source @?= Right progn
+t1 = testCase "Identity function" $ t source @?= Right core
   where
     source :: Text
-    source = "let id = /k:i.k; id 42"
-    progn :: Progn
-    progn =
-        Progn
-            [Bind (g "id") $ Lam id [l "k"] (v "k")]
-            (App TInt (Var $ tg "id" id) [Number 42])
-    id :: Ty
-    id = TArrow TInt TInt
+    source = "let id = /x:i.x; id 42"
+
+    core :: [Expr]
+    core = [ Lam
+             Ref {rname = "id", ri = 0, rty = TArrow TInt TInt, rscope = Global}
+             [Ref {rname = "x", ri = 0, rty = TInt, rscope = Local}]
+             (Var Ref {rname = "x", ri = 0, rty = TInt, rscope = Local})
+           , App
+             Ref {rname = "id", ri = 0, rty = TArrow TInt TInt, rscope = Global}
+             [Lit (Number 42)]
+           ]
 
 t2 :: TestTree
-t2 = testCase "Const function" $ c source @?= Right progn
+t2 = testCase "Const function" $ t source @?= Right core
   where
     source :: Text
     source = "let c = /x:i.1; c 42"
-    progn :: Progn
-    progn =
-        Progn
-            [Bind (tg "c" id) $ Lam id [l "x"] (Number 1)]
-            (App TInt (Var $ tg "c" id) [Number 42])
-    id :: Ty
-    id = TArrow TInt TInt
+
+    core :: [Expr]
+    core = [ Lam
+             Ref {rname = "c", ri = 0, rty = TArrow TInt TInt, rscope = Global}
+             [Ref {rname = "x", ri = 0, rty = TInt, rscope = Local}]
+             (Lit (Number 1))
+           , App
+             Ref {rname = "c", ri = 0, rty = TArrow TInt TInt, rscope = Global}
+             [Lit (Number 42)]
+           ]
 
 t3 :: TestTree
-t3 =
-    testCaseSteps "Ensure arity" $ \step -> do
-        step "Fewer arguments"
-        c "let f = /a:i b:i.0; f 1" @?= Left TyError
-        step "Surplus arguments"
-        c "let f = /a:i b:i.0; f 1 2 3" @?= Left TyError
+t3 = testCaseSteps "Arity checks" $ \step -> do
+    step "Fewer arguments"
+    t "let f = /a:i b:i.0; f 1" @?= Left TyError {expr = fewer}
+
+    step "Surplus arguments"
+    t "let f = /a:i b:i.0; f 1 2 3" @?= Left TyError {expr = surplus}
+  where
+    f :: Ref
+    f = Ref {rname = "f", ri = 0, rty = TArrow TInt (TArrow TInt TInt), rscope = Global}
+
+    fewer :: Expr
+    fewer = App f [Lit $ Number 1]
+
+    surplus :: Expr
+    surplus = App f [Lit $ Number 1, Lit $ Number 2, Lit $ Number 3]
 
 zombie :: TestTree
-zombie =
-    testCase "Find undefined variables" $ do
-        c "/x.p" @?= Left (UndefinedError "p")
-        c "/x.f 42" @?= Left (UndefinedError "f")
-        c "let f = id; /x.f 42" @?= Left (UndefinedError "id")
+zombie = testCase "Find undefined variables" $ do
+    t "/x.p" @?= Left (UndefinedError "p")
+    t "/x.f 42" @?= Left (UndefinedError "f")
+    t "let f = id; /x.f 42" @?= Left (UndefinedError "id")
+
+global :: TestTree
+global = testCase "Global Variables" $
+    t "let i = 1; let j = #t; let f = /a:i b:b.42; f i j" @?= Right core
+  where
+    core = [ Let Ref {rname = "i", ri = 0, rty = TInt, rscope = Global} $ Number 1
+           , Let Ref {rname = "j", ri = 0, rty = TBool, rscope = Global} $ Bool True
+           , Lam Ref { rname = "f"
+                     , ri = 0
+                     , rty = TArrow TInt (TArrow TBool TInt)
+                     , rscope = Global}
+             [ Ref {rname = "a", ri = 0, rty = TInt, rscope = Local}
+             , Ref {rname = "b", ri = 0, rty = TBool, rscope = Local}]
+             (Lit $ Number 42)
+           , App Ref {rname = "f"
+                     , ri = 0
+                     , rty = TArrow TInt (TArrow TBool TInt)
+                     , rscope = Global}
+             [ Var Ref {rname = "i", ri = 0, rty = TInt, rscope = Global}
+             , Var Ref {rname = "j", ri = 0, rty = TBool, rscope = Global}]]
 
 -- Helpers
-l :: Text -> Ref
-l n = Ref n 0 TInt Local
 
-g :: Text -> Ref
-g n = Ref n 0 TInt Global
-
-tg :: Text -> Ty -> Ref
-tg n t = Ref n 0 t Global
-
-v :: Text -> Expr
-v = Var . l
-
-c :: Text -> Either Error Progn
-c t = parse t >>= compile
+t :: Text -> Either Error [Expr]
+t code = parse code >>= compile

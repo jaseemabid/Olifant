@@ -23,10 +23,10 @@ tests = testGroup "Parser" ts
 literals :: TestTree
 literals =
     testCase "Literal numbers, identifiers and booleans" $ do
-        expect "42" [CNumber 42]
-        expect "-26" [CNumber (-26)]
-        expect "#f" [CBool False]
-        expect "#t" [CBool True]
+        expect "42" [CLit $ Number 42]
+        expect "-26" [CLit $ Number (-26)]
+        expect "#f" [CLit $ Bool False]
+        expect "#t" [CLit $ Bool True]
         expect "hello" [CVar "hello"]
 
 lam :: TestTree
@@ -34,15 +34,15 @@ lam =
     testCase "λ definitions" $
     -- Identity function
      do
-        expect "λx.x" [CLam [(TUnit, "x")] (CVar "x")]
-        expect "λx:b.x" [CLam [(TBool, "x")] (CVar "x")]
-        expect "λx:i.x" [CLam [(TInt, "x")] (CVar "x")]
+        expect "λx.x" [CLam "λ" [(TUnit, "x")] (CVar "x")]
+        expect "λx:b.x" [CLam "λ" [(TBool, "x")] (CVar "x")]
+        expect "λx:i.x" [CLam "λ" [(TInt, "x")] (CVar "x")]
 
 combinators :: TestTree
 combinators =
     testCase "Combinators" $
     -- K combinator
-    expect "λx.λy.x" [CLam [(TUnit, "x")] (CLam [(TUnit, "y")] (CVar "x"))]
+    expect "λx.λy.x" [CLam "λ" [(TUnit, "x")] (CLam "λ" [(TUnit, "y")] (CVar "x"))]
     -- S combinator
     -- expect "λx.λy.λz.x z y z" [Lam "x" TUnit
     --                             (Lam "y" TUnit
@@ -68,10 +68,10 @@ application =
 let' :: TestTree
 let' =
     testCase "Let expressions" $ do
-        expect "let a = 1" [CLet "a" (CNumber 1)]
-        expect "let a   =   1" [CLet "a" (CNumber 1)]
-        expect "let   a = 1" [CLet "a" (CNumber 1)]
-        expect "let id = /x.x" [CLet "id" (CLam [x] (CVar "x"))]
+        expect "let a = 1" [CLet "a" (CLit $ Number 1)]
+        expect "let a   =   1" [CLet "a" (CLit $ Number 1)]
+        expect "let   a = 1" [CLet "a" (CLit $ Number 1)]
+        expect "let id = /x.x" [CLet "id" (CLam "id" [x] (CVar "x"))]
   where
     x = (TUnit, "x")
 
@@ -86,13 +86,13 @@ ll =
         expect "1; 1" [a, a]
         expect "1;1" [a, a]
         expect "1 1" [CApp a [a]]
-        expect "1 2 3" [CApp a [CNumber 2, CNumber 3]]
-        expect "/x.x; 1" [CLam [x] (CVar "x"), a]
+        expect "1 2 3" [CApp a [CLit $ Number 2, CLit $ Number 3]]
+        expect "/x.x; 1" [CLam "λ" [x] (CVar "x"), a]
         expect
             "let id = /x.x; id 1"
-            [CLet "id" (CLam [x] (CVar "x")), CApp (CVar "id") [a]]
+            [CLet "id" (CLam "id" [x] (CVar "x")), CApp (CVar "id") [a]]
   where
-    a = CNumber 1
+    a = CLit $ Number 1
     x = (TUnit, "x")
 
 -- inline :: TestTree

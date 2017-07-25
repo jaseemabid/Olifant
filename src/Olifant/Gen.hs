@@ -18,17 +18,19 @@ getting into any of the StateT business.
 Ref: http://www.aosabook.org/en/ghc.html § No Symbol Table
 -}
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE OverloadedStrings     #-}
 
 module Olifant.Gen where
 
 import Olifant.Core
+import Olifant.Compiler hiding (verify)
 
-import Prelude   (head)
+import Prelude   (head, init, last)
 import Protolude hiding (Type, head, local, mod)
 
 import Data.ByteString.Short      (toShort)
-import LLVM.Analysis              (verify)
+-- import LLVM.Analysis              (verify)
 import LLVM.AST
 import LLVM.AST.Attribute
 import LLVM.AST.CallingConvention
@@ -69,9 +71,9 @@ type Codegen a = Olifant GenState a
 
 -- | Default `GenState`
 genState :: GenState
-genState =
-    GenState
-    {blocks = [], mod = defaultModule {moduleName = "calc"}, counter = 0}
+genState = GenState {blocks = []
+                  , mod = defaultModule {moduleName = "calc"}
+                  , counter = 0}
 
 -- | Default `BlockState`
 blockState :: Ref -> BlockState
@@ -111,6 +113,7 @@ declare n t = define f
 -- * Manipulate `BlockState`
 --
 -- | Get the current block
+-- [TODO] - Use named blocks instead of head
 current :: Codegen BlockState
 current = head <$> gets blocks
 
@@ -189,15 +192,18 @@ terminator result = return $ Do $ Ret (Just result) []
 --
 -- | Get an `Operand` operand from a reference
 op :: Ref -> Codegen Operand
-op (Ref n i t Local) = return $ LocalReference (native t) $ lname (n <> show i)
-op (Ref n i t Global) = load t $ externf t (n <> show i)
-op ref@(Ref _ _ _ Unit) =
-  throwError $ GenError $ "Unresolved variable" <> show ref
+op (Ref n _ t Local) = return $ LocalReference (native t) $ lname n
+op r@(Ref _ _ t Global) = externf r >>= load t
 
--- | Get a global reference from a string
--- [fix] - Merge this with local
-global :: Ty -> Text -> Constant
-global t n = GlobalReference (native t) $ lname n
+-- | Make an operand out of a global function
+--
+-- > %f -> @f
+externf :: Ref -> Codegen Operand
+externf (Ref n _ t Global) =
+  return $ ConstantOperand $ GlobalReference (native t) $ lname n
+externf (Ref n _ _ Local) =
+  -- [TODO] - Replace show with pp
+  throwError $ GenError $ "Attempt to externf local variable " <> show n
 
 -- | Map from Olifant types to LLVM types
 native :: Ty -> Type
@@ -211,98 +217,88 @@ native (TArrow ta tb) =
     tl (TArrow a b) = native a : tl b
     tl t            = [native t]
 
--- | Make an operand out of a global function
+-- | Generate code for a single expression
 --
--- > %f -> @f
-externf :: Ty -> Text -> Operand
-externf t n = ConstantOperand $ global t n
+-- Return an operand, which is the LHS of the operand it just dealt with.
+emit :: Expr -> Codegen Operand
+-- | Make a constant operand out of the constant
+emit (Lit (Bool True)) = return $ ConstantOperand $ Int 1 1
+emit (Lit (Bool False)) = return $ ConstantOperand $ Int 1 0
+emit (Lit (Number n)) = return $ ConstantOperand $ Int 64 (toInteger n)
+-- | Convert a reference into a local operand.
+emit (Var ref) = op ref
+-- | Apply function by name
+emit (App ref@(Ref _ _ t Global) vals) = do
+    callable <- externf ref
+    args' <- mapM emit vals
+    let args'' = [(arg, []) | arg <- args'] :: [(Operand, [ParameterAttribute])]
+    unnamed (retT t) $ Call Nothing C [] (Right callable) args'' [] []
 
--- | Generate code for a top level binding
---
--- The only allowed top level constructs are global variables and function
--- definitions. Any other term in top level will raise an error.
-top :: Bind -> Codegen Operand
--- | A top level variable could be an alias, but its an error for now
-top (Bind _ (Var ref)) = err $ "Top level alias " <> rname ref
+-- | Apply something that is not a function
+emit (App a _) = err $ "Applied non function " <> show a
+
 -- | Top level lambda expression
-top (Bind n (Lam t refs body))
+emit (Lam r@(Ref n _i t Global) refs body) = do
     -- [TODO] - Localize this computation
     -- Make a new block for this function and add to `GenState`
- = do
-    modify $ \s -> s {blocks = blockState n : blocks s}
-    result <- inner body
+    modify $ \s -> s {blocks = blockState r : blocks s}
+    result <- emit body
     term' <- terminator result
     instructions <- stack <$> current
     let fn =
             functionDefaults
-            { name = lname $ rname n
+            { name = lname n
             , parameters =
                   ([Parameter tipe nm [] | (tipe, nm) <- params], False)
             , returnType = native $ retT t
             , basicBlocks = [basicBlock instructions term']
             }
     define fn
-    op n
+    op r
   where
     params :: [(Type, Name)]
     params = [(native $ rty ref, lname $ rname ref) | ref <- refs]
-top (Bind r App {}) = err $ "Top level function call " <> rname r
+
+-- | Apply something that is not a function
+emit (Lam ref _ _) = err $ "Malformed lambda definition " <> show ref
+
 -- | Add a constant global variable
-top (Bind ref lit) = do
-    op'@(ConstantOperand value') <- inner lit
-    define $ global' value'
-    return op'
+emit (Let ref val) =
+    emit (Lit val) >>= \case
+      res@(ConstantOperand value') -> do
+        define $ global' value'
+        return res
+      res@LocalReference{} ->
+        return res
+      res@MetadataOperand{} ->
+        return res
   where
     global' :: Constant -> Global
-    global' val =
+    global' var =
         globalVariableDefaults
         { name = Name $ toShort $ toS $ rname ref
-        , initializer = Just val
-        , type' = native $ ty lit
+        , initializer = Just var
+        , type' = native $ ty (Lit val)
         }
-
--- | Generate code for an expression not at the top level
---
--- Inner should return an operand, which is the LHS of the operand it just dealt
--- with. Inner is free to push instructions to the current block.
-inner :: Expr -> Codegen Operand
--- | Convert a reference into a local operand.
-inner (Var ref) = op ref
--- | Make a constant operand out of the constant
-inner (Number n) = return $ ConstantOperand $ Int 64 (toInteger n)
-inner (Bool True) = return $ ConstantOperand $ Int 1 1
-inner (Bool False) = return $ ConstantOperand $ Int 1 0
--- | Apply function by name
-inner (App _t (Var (Ref n _ t Global)) vals) = do
-    args' <- mapM inner vals
-    let args'' = [(arg, []) | arg <- args'] :: [(Operand, [ParameterAttribute])]
-    unnamed (retT t) $ Call Nothing C [] fn args'' [] []
-  where
-    fn :: CallableOperand
-    fn = Right $ externf t n
--- | Apply something that is not a function
-inner (App _t a _) = err $ "Applied non function " <> show a
--- \ Higher order function - throw an error
-inner (Lam _t ref _) = err $ "Higher order function" <> show ref
 
 -- * Code generation
 --
 -- | Make an LLVM module from a `Progn`
-genm :: Progn -> Either Error Module
+genm :: [Expr] -> Either Error Module
 genm prog = execM (run prog) genState >>= return . mod
   where
     -- | Step through the AST and _throw_ away the results
-    run :: Progn -> Codegen ()
-    run (Progn ps e) = do
-        declare "printi" tt
-        mapM_ top $ ps ++ [main]
+    run :: [Expr] -> Codegen ()
+    run cs = mapM_ emit $ init cs ++ [entry]
       where
         tt :: Ty
         tt = TArrow TInt TInt
-        printi :: Expr
-        printi = Var $ Ref "printi" 0 tt Global
-        -- [TODO] - This is a terrible approximation
-        main = Bind (Ref "main" 0 TInt Global) (Lam TInt [] (App TInt printi [e]))
+
+        r :: Ref
+        r = Ref "olifant" 0 tt Global
+
+        entry :: Expr
+        entry = Lam r [] (last cs)
 
 -- | Tweak passes of LLVM compiler
 --
@@ -316,14 +312,15 @@ passes = defaultCuratedPassSetSpec {optLevel = Just 0}
 toLLVM :: Module -> IO Text
 toLLVM modl =
     withContext $ \context ->
-        withModuleFromAST context modl $ \m -> do
-            verify m
+        withModuleFromAST context modl $ \m ->
+            -- Verification hides the AST and makes debugging extremely painful.
+            -- verify m
             withPassManager passes $ \pm -> do
                 _ <- runPassManager pm m
                 toS <$> moduleLLVMAssembly m
 
 -- | Return compiled LLVM IR
-gen :: Progn -> IO (Either Error Text)
+gen :: [Expr] -> IO (Either Error Text)
 gen ast =
     case genm ast of
         Left e     -> return $ Left e
