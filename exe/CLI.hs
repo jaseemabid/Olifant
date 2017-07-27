@@ -26,7 +26,7 @@ version :: IO ()
 version = putStrLn ("The Glorious Olifant, version 0.0.0.1" :: Text)
 
 -- | Compile source to core
-core :: Text -> Either Error [Expr]
+core :: Text -> Either Error [Core]
 core src = parse src >>= compile
 
 -- | Generate native code from source

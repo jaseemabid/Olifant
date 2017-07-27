@@ -220,7 +220,7 @@ native (TArrow ta tb) =
 -- | Generate code for a single expression
 --
 -- Return an operand, which is the LHS of the operand it just dealt with.
-emit :: Expr -> Codegen Operand
+emit :: Core -> Codegen Operand
 -- | Make a constant operand out of the constant
 emit (Lit (Bool True)) = return $ ConstantOperand $ Int 1 1
 emit (Lit (Bool False)) = return $ ConstantOperand $ Int 1 0
@@ -284,11 +284,11 @@ emit (Let ref val) =
 -- * Code generation
 --
 -- | Make an LLVM module from a `Progn`
-genm :: [Expr] -> Either Error Module
+genm :: [Core] -> Either Error Module
 genm prog = execM (run prog) genState >>= return . mod
   where
     -- | Step through the AST and _throw_ away the results
-    run :: [Expr] -> Codegen ()
+    run :: [Core] -> Codegen ()
     run cs = mapM_ emit $ init cs ++ [entry]
       where
         tt :: Ty
@@ -297,7 +297,7 @@ genm prog = execM (run prog) genState >>= return . mod
         r :: Ref
         r = Ref "olifant" 0 tt Global
 
-        entry :: Expr
+        entry :: Core
         entry = Lam r [] (last cs)
 
 -- | Tweak passes of LLVM compiler
@@ -320,7 +320,7 @@ toLLVM modl =
                 toS <$> moduleLLVMAssembly m
 
 -- | Return compiled LLVM IR
-gen :: [Expr] -> IO (Either Error Text)
+gen :: [Core] -> IO (Either Error Text)
 gen ast =
     case genm ast of
         Left e     -> return $ Left e

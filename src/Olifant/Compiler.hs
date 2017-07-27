@@ -22,7 +22,7 @@ type Compiler a = Olifant Env a
 
 -- | Top level API of the module
 
-compile :: [Calculus] -> Either Error [Expr]
+compile :: [Calculus] -> Either Error [Core]
 compile ls = evalM (infer ls >>= rename >>= verify) mempty
 
 -- * State Management
@@ -44,7 +44,7 @@ append a b = a ++ [b]
 -- | Get the type of a *well typed* core expression
 --
 -- This function is reliable only after the infer pass; encode this with types.
-ty :: Expr -> Ty
+ty :: Core -> Ty
 ty (Lit (Number _)) = TInt
 ty (Lit (Bool _))   = TBool
 ty (Var ref)        = rty ref
@@ -96,11 +96,11 @@ structure cs =
 -- too much, but that might be due to a very liberal `Calculus` and a reasonably
 -- sane Core.
 --
-infer :: [Calculus] -> Compiler [Expr]
+infer :: [Calculus] -> Compiler [Core]
 infer = mapM emit
   where
     -- Translate a nested expression
-    emit :: Calculus -> Compiler Expr
+    emit :: Calculus -> Compiler Core
 
     -- Literals are the same
     emit (CLit n) = return $ Lit n
@@ -169,20 +169,20 @@ infer = mapM emit
         err -> throwError $ SyntaxError $ show err
 
 -- | Rename core to avoid shadowing
-rename :: [Expr] -> Compiler [Expr]
+rename :: [Core] -> Compiler [Core]
 rename = return
 
 -- | Verify the core
 --
 -- 1. Ensure redundant types match
-verify :: [Expr] -> Compiler [Expr]
+verify :: [Core] -> Compiler [Core]
 verify = return
 
 -- | Find free variables in Core
-free :: [Expr] -> Compiler [Ref]
+free :: [Core] -> Compiler [Ref]
 free cs = concat <$> mapM emit cs
   where
-    emit :: Expr -> Compiler [Ref]
+    emit :: Core -> Compiler [Ref]
     emit Lit {}              = return []
     emit (Var ref)           = maybeToList <$> fetch (rname ref)
     emit (Lam _fn args body) = do

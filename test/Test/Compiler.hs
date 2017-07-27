@@ -20,7 +20,7 @@ t1 = testCase "Identity function" $ t source @?= Right core
     source :: Text
     source = "let id = /x:i.x; id 42"
 
-    core :: [Expr]
+    core :: [Core]
     core = [ Lam
              Ref {rname = "id", ri = 0, rty = TArrow TInt TInt, rscope = Global}
              [Ref {rname = "x", ri = 0, rty = TInt, rscope = Local}]
@@ -36,7 +36,7 @@ t2 = testCase "Const function" $ t source @?= Right core
     source :: Text
     source = "let c = /x:i.1; c 42"
 
-    core :: [Expr]
+    core :: [Core]
     core = [ Lam
              Ref {rname = "c", ri = 0, rty = TArrow TInt TInt, rscope = Global}
              [Ref {rname = "x", ri = 0, rty = TInt, rscope = Local}]
@@ -57,10 +57,10 @@ t3 = testCaseSteps "Arity checks" $ \step -> do
     f :: Ref
     f = Ref {rname = "f", ri = 0, rty = TArrow TInt (TArrow TInt TInt), rscope = Global}
 
-    fewer :: Expr
+    fewer :: Core
     fewer = App f [Lit $ Number 1]
 
-    surplus :: Expr
+    surplus :: Core
     surplus = App f [Lit $ Number 1, Lit $ Number 2, Lit $ Number 3]
 
 zombie :: TestTree
@@ -91,5 +91,5 @@ global = testCase "Global Variables" $
 
 -- Helpers
 
-t :: Text -> Either Error [Expr]
+t :: Text -> Either Error [Core]
 t code = parse code >>= compile

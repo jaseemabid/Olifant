@@ -73,11 +73,11 @@ data Ref = Ref
 -- https://ghc.haskell.org/trac/ghc/wiki/Commentary/Compiler/CoreSynType
 -- http://blog.ezyang.com/2013/05/the-ast-typing-problem/
 --
-data Expr
+data Core
   = Lit Literal
   | Var Ref
-  | Lam Ref [Ref] Expr
-  | App Ref [Expr]
+  | Lam Ref [Ref] Core
+  | App Ref [Core]
   | Let Ref Literal
   deriving (Eq, Show)
 
@@ -87,7 +87,7 @@ data Expr
 -- 1. SSA, No compound expressions
 -- 2. Not a recursive grammar
 -- 3. Nothing that cant be trivially translated to LLVM
-type Mach = Expr
+type Mach = Core
 
 -- * Error handling and state monad
 --
@@ -99,7 +99,7 @@ data Error
     | ParseError ParseError
     | SyntaxError Text
     | UndefinedError Text
-    | TyError {expr :: Expr}
+    | TyError {expr :: Core}
     deriving (Eq, Show)
 
 -- | Olifant Monad
@@ -150,7 +150,7 @@ instance D Literal where
     p (Bool True)  = "#t"
     p (Bool False) = "#t"
 
-instance D Expr where
+instance D Core where
     p (Lit a)       = p a
     p (Var ref)     = p ref
     p (Lam r a _)   = lambda <> p r <> dot <> p a
