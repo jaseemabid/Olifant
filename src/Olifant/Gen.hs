@@ -107,7 +107,7 @@ declare n t = define f
         }
     -- | Ty to list
     params :: Ty -> [(Type, Name)]
-    params (TArrow ta _) = [(native ta, "_")]
+    params (ta :> _) = [(native ta, "_")]
     params _             = []
 
 -- * Manipulate `BlockState`
@@ -207,14 +207,14 @@ externf (Ref n _ _ Local) =
 
 -- | Map from Olifant types to LLVM types
 native :: Ty -> Type
-native TUnit = LLVM.AST.Type.void
-native TInt = i64
-native TBool = i1
-native (TArrow ta tb) =
-    FunctionType
-    {argumentTypes = tl ta, resultType = native $ retT tb, isVarArg = False}
+native TUnit      = LLVM.AST.Type.void
+native TInt       = i64
+native TBool      = i1
+native (ta :> tb) = FunctionType { argumentTypes = tl ta
+                                 , resultType = native $ retT tb
+                                 , isVarArg = False}
   where
-    tl (TArrow a b) = native a : tl b
+    tl (a :> b) = native a : tl b
     tl t            = [native t]
 
 -- | Generate code for a single expression
@@ -292,7 +292,7 @@ genm prog = execM (run prog) genState >>= return . mod
     run cs = mapM_ emit $ init cs ++ [entry]
       where
         tt :: Ty
-        tt = TArrow TInt TInt
+        tt = TInt :> TInt
 
         r :: Ref
         r = Ref "olifant" 0 tt Global

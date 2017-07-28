@@ -54,22 +54,22 @@ ty (Let ref _)      = rty ref
 
 -- | Return type of a type
 retT :: Ty -> Ty
-retT (TArrow _ tb) = retT tb
+retT (_ :> tb) = retT tb
 retT t             = t
 
 -- | Arguments of a type
 argT :: Ty -> Ty
-argT (TArrow ta _) = ta
+argT (ta :> _) = ta
 argT t             = t
 
 -- | Arguments of a type
 arity :: Ty -> Int
-arity (TArrow _ t) = 1 + arity t
+arity (_ :> t) = 1 + arity t
 arity _            = 0
 
 -- | Make function type out of the argument types & body type
 unapply :: Ty -> [Ty] -> Ty
-unapply = foldr TArrow
+unapply = foldr (:>)
 
 -- | Validate structure of the program
 --
@@ -154,7 +154,7 @@ infer = mapM emit
           -- [TODO] - Change type to Either Ty TyError
           apply :: Ty -> [Ty] -> Maybe Ty
           apply ta [] = return ta
-          apply (TArrow ta tb) (tz:ts)
+          apply (ta :> tb) (tz:ts)
             | tz == ta = apply tb ts
             | otherwise = Nothing
           apply _ _ = Nothing

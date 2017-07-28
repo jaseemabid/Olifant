@@ -22,11 +22,11 @@ t1 = testCase "Identity function" $ t source @?= Right core
 
     core :: [Core]
     core = [ Lam
-             Ref {rname = "id", ri = 0, rty = TArrow TInt TInt, rscope = Global}
+             Ref {rname = "id", ri = 0, rty = TInt :> TInt, rscope = Global}
              [Ref {rname = "x", ri = 0, rty = TInt, rscope = Local}]
              (Var Ref {rname = "x", ri = 0, rty = TInt, rscope = Local})
            , App
-             Ref {rname = "id", ri = 0, rty = TArrow TInt TInt, rscope = Global}
+             Ref {rname = "id", ri = 0, rty = TInt :> TInt, rscope = Global}
              [Lit (Number 42)]
            ]
 
@@ -38,11 +38,11 @@ t2 = testCase "Const function" $ t source @?= Right core
 
     core :: [Core]
     core = [ Lam
-             Ref {rname = "c", ri = 0, rty = TArrow TInt TInt, rscope = Global}
+             Ref {rname = "c", ri = 0, rty = TInt :> TInt, rscope = Global}
              [Ref {rname = "x", ri = 0, rty = TInt, rscope = Local}]
              (Lit (Number 1))
            , App
-             Ref {rname = "c", ri = 0, rty = TArrow TInt TInt, rscope = Global}
+             Ref {rname = "c", ri = 0, rty = TInt :> TInt, rscope = Global}
              [Lit (Number 42)]
            ]
 
@@ -55,7 +55,7 @@ t3 = testCaseSteps "Arity checks" $ \step -> do
     t "f a:i b:i = 0; f 1 2 3" @?= Left TyError {expr = surplus}
   where
     f :: Ref
-    f = Ref { rname = "f", ri = 0, rty = TArrow TInt (TArrow TInt TInt)
+    f = Ref { rname = "f", ri = 0, rty = TInt :> TInt :> TInt
             , rscope = Global}
 
     fewer :: Core
@@ -77,14 +77,14 @@ global = testCase "Global Variables" $
            , Let Ref {rname = "j", ri = 0, rty = TBool, rscope = Global} $ Bool True
            , Lam Ref { rname = "f"
                      , ri = 0
-                     , rty = TArrow TInt (TArrow TBool TInt)
+                     , rty = TInt :> TBool :> TInt
                      , rscope = Global}
              [ Ref {rname = "a", ri = 0, rty = TInt, rscope = Local}
              , Ref {rname = "b", ri = 0, rty = TBool, rscope = Local}]
              (Lit $ Number 42)
            , App Ref {rname = "f"
                      , ri = 0
-                     , rty = TArrow TInt (TArrow TBool TInt)
+                     , rty = TInt :> TBool :> TInt
                      , rscope = Global}
              [ Var Ref {rname = "i", ri = 0, rty = TInt, rscope = Global}
              , Var Ref {rname = "j", ri = 0, rty = TBool, rscope = Global}]]

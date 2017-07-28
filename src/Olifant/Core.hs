@@ -17,13 +17,13 @@ import Text.PrettyPrint
 -- TUnit exists only as a placeholder for earlier partially typed languages. 2
 -- kinds of types are ideal, but that would be so much confusion, name
 -- collisions and boilerplate.
--- [TODO] - Replace TArrow with ~>
-data Ty
-    = TUnit
-    | TInt
-    | TBool
-    | TArrow Ty Ty
-    deriving (Eq, Ord, Show)
+data Ty = TUnit | TInt | TBool | Ty :> Ty
+  deriving (Eq, Ord, Show)
+
+-- | Type is right associative
+--
+-- @i :> i :> i@ should be @i :> (i :> i)@ but by default its @(i :> i) :> i@
+infixr 7 :>
 
 -- | literals, shared by all languages
 data Literal = Bool Bool | Number Int
@@ -143,7 +143,7 @@ instance D Ty where
     p TUnit          = "∅"
     p TInt           = "i"
     p TBool          = "b"
-    p (TArrow ta tb) = p ta <> arrow <> p tb
+    p (ta :> tb) = p ta <> arrow <> p tb
 
 instance D Literal where
     p (Number n)   = int n
