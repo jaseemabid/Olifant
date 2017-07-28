@@ -120,13 +120,13 @@ handle :: [Calculus] -> Parsec Text st Calculus
 handle []  = parserFail "Oops!"
 handle [x] = return x
 handle ts  = case break (Eql ==) ts of
-    -- ^ a = 42
+    -- Assignment; `a = 42`
     ([CVar t var], [Eql, val]) -> return $ CLet t var val
 
-    -- ^ 3 = ..; assignment to non text value
+    -- Assignment to non text value; `3 = 4`
     ([_], [Eql, _])          -> parserFail "Illegal Assignment"
 
-    -- ^ Function bodies can contain just a single expression
+    -- Function definition
     (CVar _ f: as, Eql: body) -> do
 
         -- Ensure all arguments are typed
@@ -138,7 +138,7 @@ handle ts  = case break (Eql ==) ts of
         mkArgs (CVar t val) = return (t, val)
         mkArgs _ = parserFail "Expected typed variable as argument"
 
-     -- ^ Found no =, so this should be an application
+     -- A sequence without a = should be an application
     (f:args, []) -> return $ CApp f args
 
     _ -> parserFail $ "Unable to parse\n" <> show ts
