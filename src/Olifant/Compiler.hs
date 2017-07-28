@@ -23,7 +23,7 @@ type Compiler a = Olifant Env a
 -- | Top level API of the module
 
 compile :: [Calculus] -> Either Error [Core]
-compile ls = evalM (infer ls >>= rename >>= verify) mempty
+compile ls = evalM (structure ls >>= infer >>= rename >>= verify) mempty
 
 -- * State Management
 
@@ -73,19 +73,24 @@ unapply = foldr TArrow
 
 -- | Validate structure of the program
 --
--- It should be a series of let bindings and one expression in the end
+-- It should be a series of optional let bindings and one expression in the end
 structure :: [Calculus] -> Compiler [Calculus]
-structure cs =
-  case unsnoc cs of
-    Just (decls, cmd) -> append <$> mapM decl decls <*> main cmd
-    Nothing           -> serr "Expected a list of let bindings and a command"
+structure = \case
+    [ ]  -> serr "Expected a list of let bindings and a command"
+    [x]  -> main x >>= \x' -> return [x']
+    x:xs -> do
+      d <- decl x
+      r <- structure xs
+      return $ d : r
+
   where
-    -- Ensure everything except the last expression is a let binding
+    -- Verify the declarations
     decl :: Calculus -> Compiler Calculus
     decl c@CLet{} = return c
+    decl c@CLam{} = return c
     decl c = serr $ "Expected let expression, got " <> show c <> " instead"
 
-    -- Transform the last command into a `main` call
+    -- Verify the last expression
     main CLam{} = serr "Body can't be a function declaration"
     main CLet{} = serr "Body can't be a let binding"
     main calc   = return calc

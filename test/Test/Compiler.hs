@@ -55,7 +55,8 @@ t3 = testCaseSteps "Arity checks" $ \step -> do
     t "f a:i b:i = 0; f 1 2 3" @?= Left TyError {expr = surplus}
   where
     f :: Ref
-    f = Ref {rname = "f", ri = 0, rty = TArrow TInt (TArrow TInt TInt), rscope = Global}
+    f = Ref { rname = "f", ri = 0, rty = TArrow TInt (TArrow TInt TInt)
+            , rscope = Global}
 
     fewer :: Core
     fewer = App f [Lit $ Number 1]
@@ -65,8 +66,8 @@ t3 = testCaseSteps "Arity checks" $ \step -> do
 
 zombie :: TestTree
 zombie = testCase "Find undefined variables" $ do
-    t "f x = p" @?= Left (UndefinedError "p")
-    t "f x = g 42" @?= Left (UndefinedError "g")
+    t "f x = p; #t" @?= Left (UndefinedError "p")
+    t "f x = g 42; #t" @?= Left (UndefinedError "g")
 
 global :: TestTree
 global = testCase "Global Variables" $
