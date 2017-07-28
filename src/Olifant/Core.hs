@@ -52,7 +52,7 @@ data Calculus
 -- Code treats local and global variables differently. A scope type with and
 -- without unit can be disambiguate at compile time, but that is for some other
 -- day.
-data Scope = Local | Global
+data Scope = Local | Global | Extern
     deriving (Eq, Ord, Show)
 
 -- | A reference type
@@ -137,6 +137,7 @@ class D a where
 instance D Ref where
     p (Ref n i t Local)  = char '%' <> text (toS n) <> int i <> colon <> p t
     p (Ref n i t Global) = char '@' <> text (toS n) <> int i <> colon <> p t
+    p (Ref n i t Extern) = char '^' <> text (toS n) <> int i <> colon <> p t
 
 -- [TODO] - Fix type pretty printer for higher order functions
 instance D Ty where

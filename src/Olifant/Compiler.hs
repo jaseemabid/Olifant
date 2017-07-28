@@ -22,9 +22,13 @@ type Compiler a = Olifant Env a
 
 -- | Default environment
 environment :: Env
-environment = Map.fromList [
-    ("sum", Ref "sum" 0 (TInt :> TInt :> TInt) Global)
-  ]
+environment = Map.fromList env
+  where
+    binops :: [Text]
+    binops = ["sum", "sub", "mul", "div", "shr", "shl"]
+
+    env :: [(Text, Ref)]
+    env = [(n, Ref n 0 (TInt :> TInt :> TInt) Extern) | n <- binops]
 
 -- | Top level API of the module
 compile :: [Calculus] -> Either Error [Core]

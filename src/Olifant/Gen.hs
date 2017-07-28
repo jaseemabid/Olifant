@@ -95,10 +95,10 @@ define g = do
 -- I'm not sure if there is a better way to declare an external function than
 -- defining a function with an empty block list and not without naming all
 -- arguments `_`
-declare :: Name -> Ty -> Codegen ()
-declare n t = define f
+declare :: Ref -> Codegen ()
+declare (Ref n _ t Extern) = define f
   where
-    f = functionDefaults { name = n
+    f = functionDefaults { name = lname n
                          , parameters = (params t, False)
                          , returnType = native $ retT t
                          , basicBlocks = []}
@@ -108,6 +108,8 @@ declare n t = define f
     params t1 = case unsnoc $ flatT t1 of
       Just (ts, _) -> [Parameter (native ti) "_" [] | ti <- ts]
       Nothing      -> []
+
+declare ref = throwError $ GenError $ "Cannot extern " <> (show ref :: Text)
 
 -- * Manipulate `BlockState`
 --
@@ -191,18 +193,19 @@ terminator result = return $ Do $ Ret (Just result) []
 --
 -- | Get an `Operand` operand from a reference
 op :: Ref -> Codegen Operand
-op (Ref n _ t Local) = return $ LocalReference (native t) $ lname n
+op   (Ref n _ t Local)  = return $ LocalReference (native t) $ lname n
 op r@(Ref _ _ t Global) = externf r >>= load t
+op r@(Ref _ _ t Extern) = externf r >>= load t
 
 -- | Make an operand out of a global function
 --
 -- > %f -> @f
 externf :: Ref -> Codegen Operand
-externf (Ref n _ t Global) =
-  return $ ConstantOperand $ GlobalReference (native t) $ lname n
 externf (Ref n _ _ Local) =
   -- [TODO] - Replace show with pp
   throwError $ GenError $ "Attempt to externf local variable " <> show n
+externf (Ref n _ t _) =
+  return $ ConstantOperand $ GlobalReference (native t) $ lname n
 
 -- | Map from Olifant types to LLVM types
 native :: Ty -> Type
@@ -220,21 +223,24 @@ native (ta :> tb) = FunctionType { argumentTypes = tl ta
 --
 -- Return an operand, which is the LHS of the operand it just dealt with.
 emit :: Core -> Codegen Operand
+
 -- | Make a constant operand out of the constant
 emit (Lit (Bool True)) = return $ ConstantOperand $ Int 1 1
 emit (Lit (Bool False)) = return $ ConstantOperand $ Int 1 0
 emit (Lit (Number n)) = return $ ConstantOperand $ Int 64 (toInteger n)
+
 -- | Convert a reference into a local operand.
 emit (Var ref) = op ref
+
 -- | Apply function by name
-emit (App ref@(Ref _ _ t Global) vals) = do
+emit (App ref@(Ref _ _ t scope) vals) = do
     callable <- externf ref
+
+    when (scope == Extern) $ declare ref
+
     args' <- mapM emit vals
     let args'' = [(arg, []) | arg <- args'] :: [(Operand, [ParameterAttribute])]
     unnamed (retT t) $ Call Nothing C [] (Right callable) args'' [] []
-
--- | Apply something that is not a function
-emit (App a _) = err $ "Applied non function " <> show a
 
 -- | Top level lambda expression
 emit (Lam r@(Ref n _i t Global) refs body) = do
@@ -288,9 +294,7 @@ genm prog = execM (run prog) genState >>= return . mod
   where
     -- | Step through the AST and _throw_ away the results
     run :: [Core] -> Codegen ()
-    run cs = do
-        declare "sum" $ TInt :> TInt :> TInt
-        mapM_ emit $ init cs ++ [entry]
+    run cs = mapM_ emit $ init cs ++ [entry]
       where
         tt :: Ty
         tt = TInt :> TInt
