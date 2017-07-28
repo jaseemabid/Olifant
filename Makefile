@@ -6,7 +6,7 @@ a.s: a.ll
 
 .PHONY: docs
 docs: src
-	stack haddock --haddock --no-haddock-deps
+	stack haddock --no-haddock-deps --open
 
 .PHONY: pretty
 pretty:
