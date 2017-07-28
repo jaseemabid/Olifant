@@ -39,10 +39,10 @@ data Literal = Bool Bool | Number Int
 -- 6. Higher order functions, functions with let bindings etc allowed
 data Calculus
     = CLit Literal
-    | CVar Text
+    | CVar Ty Text
     | CLam Text [(Ty, Text)] Calculus
     | CApp Calculus [Calculus]
-    | CLet Text Calculus  -- Partial for now, Calculus is a CVar
+    | CLet Ty Text Calculus
     deriving (Eq, Show)
 
 -- * Core

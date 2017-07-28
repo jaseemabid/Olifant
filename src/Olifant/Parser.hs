@@ -1,3 +1,4 @@
+{-# LANGUAGE PatternSynonyms #-}
 {-|
 Module      : Olifant.Parser
 Description : First phase of the compilation
@@ -11,34 +12,38 @@ module Olifant.Parser where
 import Olifant.Core hiding (lambda)
 
 import Prelude   (Char, String, read)
-import Protolude hiding (bool, many, try, (<|>))
+import Protolude hiding (bool, handle, many, try, (<|>))
 
 import Data.Char   (isAlpha)
 import Data.Text   (strip)
-import Text.Parsec
+import Text.Parsec hiding (space, spaces)
 
 -- ParserT monad transformer and Parser type
 --
 -- @ParsecT s u m ui@ is a parser with stream type s, user state type u,
 -- underlying monad m and return type a. Parsec is strict in the user state.
---
+
 -- | Special symbols
 specials :: String
 specials = [':', 'λ', '#', '\\', '/', ';', '\n']
 
+-- | Handle a single space. Parsec version consumes new line as well
+space :: Parsec Text st Char
+space = char ' '
+
+-- | Skips /zero/ or more white space characters.
+--
+-- Redefining spaces because we redefined `space` as well
+spaces :: Parsec Text st ()
+spaces = skipMany space <?> "white space"
+
+-- | Pattern match a constant without repeating it.
+pattern Eql :: Calculus
+pattern Eql = CVar TUnit "__EQUAL__"
+
 -- | Term separator
 sep :: Parsec Text st Char
 sep = char ';' <|> newline <|> (eof *> return ';')
-
--- | Parse a type
-ty :: Parsec Text st Ty
-ty = do
-    t <- optionMaybe $ try (char ':') *> (char 'i' <|> char 'b')
-    return $ case t of
-        Just 'b' -> TBool
-        Just 'i' -> TInt
-        Just _   -> TUnit
-        Nothing  -> TUnit
 
 -- | Parse a signed integer
 number :: Parsec Text st Calculus
@@ -62,54 +67,41 @@ identifier = toS <$> many1 (satisfy $ \c -> isAlpha c && (c `notElem` specials))
 
 -- | Parse a word as an identifier
 symbol :: Parsec Text st Calculus
-symbol = CVar <$> identifier
+symbol = do
+    n <- identifier
+    t <- try ty
+    return $ CVar t n
+  where
+    -- | Parse a type
+    ty :: Parsec Text st Ty
+    ty = do
+        t <- optionMaybe $ try (char ':') *> (char 'i' <|> char 'b')
+        return $ case t of
+          Just 'b' -> TBool
+          Just 'i' -> TInt
+          Just _   -> TUnit
+          Nothing  -> TUnit
 
 -- [TODO] - Add support for Haskell style type declaration
 -- [TODO] - Treat type declarations without body as extern
 
--- | Parse expressions of the form @\x.x@
-lambda :: Parsec Text st Calculus
-lambda = do
-    choice $ map char ['\\', '/', 'λ']
-    ps <- sepEndBy1 param (many1 space)
-    char '.'
-    body <- calculus
-    return $ CLam "λ" ps body
-  where
-    param :: Parsec Text st (Ty, Text)
-    param = do
-        arg <- identifier
-        t <- ty
-        return (t, arg)
-
--- [TODO] - Drop the let for Haskell style fn definitions
-bind :: Parsec Text st Calculus
-bind = do
-    try $ string "let"
-    var <- spaces *> identifier <* spaces
-    char '='
-    val <- many1 space *> term <* spaces
-    case val of
-      CLam _name as body -> return $ CLet var (CLam var as body)
-      _ -> return $ CLet var val
+-- | Parse a literal = symbol
+--
+-- Using magic constants kind of suck; find some other approach
+equals :: Parsec Text st Calculus
+equals = CVar TUnit . toS <$> string "=" *> return Eql
 
 -- | A term, which is anything except lambda application
 term :: Parsec Text st Calculus
-term =
-    bind <|> lambda <|> symbol <|> bool <|> number <|>
-    (char '(' *> term <* char ')')
+term = symbol <|> bool <|> number <|> equals
 
--- Calculus
+-- | Parse a single calculus expression
 calculus :: Parsec Text st Calculus
-calculus = do
-    f <- spaces *> term <* spaces
-    as <- many (spaces *> term <* spaces)
-    case as of
-        [] -> return f
-        _  -> return $ CApp f as
+calculus = manyTill (spaces *> term <* spaces) (try sep) >>= handle
 
+-- | Parse the whole program; split by new line
 parser :: Parsec Text st [Calculus]
-parser = calculus `sepEndBy1` sep <* eof
+parser = sepEndBy1 (spaces *> calculus <* spaces) spaces <* eof
 
 -- | Parse source and return AST
 --
@@ -122,3 +114,31 @@ parse input =
     case runP parser () "" (strip input) of
         Left err  -> Left $ ParseError err
         Right val -> Right val
+
+-- | Handle a series of terms into a Calculus expression
+handle :: [Calculus] -> Parsec Text st Calculus
+handle []  = parserFail "Oops!"
+handle [x] = return x
+handle ts  = case break (Eql ==) ts of
+    -- ^ a = 42
+    ([CVar t var], [Eql, val]) -> return $ CLet t var val
+
+    -- ^ 3 = ..; assignment to non text value
+    ([_], [Eql, _])          -> parserFail "Illegal Assignment"
+
+    -- ^ Function bodies can contain just a single expression
+    (CVar _ f: as, Eql: body) -> do
+
+        -- Ensure all arguments are typed
+        args <- mapM mkArgs as
+        body' <- handle body
+        return $ CLam f args body'
+      where
+        mkArgs :: Calculus -> Parsec Text st (Ty, Text)
+        mkArgs (CVar t val) = return (t, val)
+        mkArgs _ = parserFail "Expected typed variable as argument"
+
+     -- ^ Found no =, so this should be an application
+    (f:args, []) -> return $ CApp f args
+
+    _ -> parserFail $ "Unable to parse\n" <> show ts

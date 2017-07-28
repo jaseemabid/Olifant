@@ -18,7 +18,7 @@ t1 :: TestTree
 t1 = testCase "Identity function" $ t source @?= Right core
   where
     source :: Text
-    source = "let id = /x:i.x; id 42"
+    source = "id x:i = x; id 42"
 
     core :: [Core]
     core = [ Lam
@@ -34,7 +34,7 @@ t2 :: TestTree
 t2 = testCase "Const function" $ t source @?= Right core
   where
     source :: Text
-    source = "let c = /x:i.1; c 42"
+    source = "c x:i = 1; c 42"
 
     core :: [Core]
     core = [ Lam
@@ -49,10 +49,10 @@ t2 = testCase "Const function" $ t source @?= Right core
 t3 :: TestTree
 t3 = testCaseSteps "Arity checks" $ \step -> do
     step "Fewer arguments"
-    t "let f = /a:i b:i.0; f 1" @?= Left TyError {expr = fewer}
+    t "f a:i b:i = 0; f 1" @?= Left TyError {expr = fewer}
 
     step "Surplus arguments"
-    t "let f = /a:i b:i.0; f 1 2 3" @?= Left TyError {expr = surplus}
+    t "f a:i b:i = 0; f 1 2 3" @?= Left TyError {expr = surplus}
   where
     f :: Ref
     f = Ref {rname = "f", ri = 0, rty = TArrow TInt (TArrow TInt TInt), rscope = Global}
@@ -65,13 +65,12 @@ t3 = testCaseSteps "Arity checks" $ \step -> do
 
 zombie :: TestTree
 zombie = testCase "Find undefined variables" $ do
-    t "/x.p" @?= Left (UndefinedError "p")
-    t "/x.f 42" @?= Left (UndefinedError "f")
-    t "let f = id; /x.f 42" @?= Left (UndefinedError "id")
+    t "f x = p" @?= Left (UndefinedError "p")
+    t "f x = g 42" @?= Left (UndefinedError "g")
 
 global :: TestTree
 global = testCase "Global Variables" $
-    t "let i = 1; let j = #t; let f = /a:i b:b.42; f i j" @?= Right core
+    t "i = 1; j = #t; f a:i b:b = 42; f i j" @?= Right core
   where
     core = [ Let Ref {rname = "i", ri = 0, rty = TInt, rscope = Global} $ Number 1
            , Let Ref {rname = "j", ri = 0, rty = TBool, rscope = Global} $ Bool True

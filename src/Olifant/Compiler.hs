@@ -106,10 +106,11 @@ infer = mapM emit
     emit (CLit n) = return $ Lit n
 
     -- Calculus variable is just a text, Core variable is a `Ref`.
-    emit (CVar var) =
+    -- [TODO] - Ensure types match here
+    emit (CVar _ var) =
       fetch var >>= \case
         Just ref' -> return $ Var ref'
-        Nothing -> throwError $ UndefinedError var
+        Nothing   -> throwError $ UndefinedError var
 
     emit (CLam name args body) = do
         body' <- localized $ do
@@ -131,9 +132,9 @@ infer = mapM emit
         -- Make a new environment for the body extending env with args
         fenv = Map.fromList [(rname arg, arg) | arg <- rargs]
 
-    emit (CApp (CVar fn) args) = do
+    emit (CApp (CVar t fn) args) = do
         -- Is the function even defined? fn' will be the expected type
-        Var fn' <- emit $ CVar fn
+        Var fn' <- emit $ CVar t fn
         args' <- mapM emit args
 
         --  Arity check
@@ -147,16 +148,16 @@ infer = mapM emit
         where
           -- [TODO] - Change type to Either Ty TyError
           apply :: Ty -> [Ty] -> Maybe Ty
-          apply t [] = return t
-          apply (TArrow ta tb) (t:ts)
-            | t == ta = apply tb ts
+          apply ta [] = return ta
+          apply (TArrow ta tb) (tz:ts)
+            | tz == ta = apply tb ts
             | otherwise = Nothing
           apply _ _ = Nothing
 
     emit (CApp _ _ ) =
       throwError $ SyntaxError "Higher order functions not supported _yet_"
 
-    emit (CLet var val) =
+    emit (CLet _t var val) =
       emit val >>= \case
         Lam ref' args body -> do
           let r = ref' {rname = var}
