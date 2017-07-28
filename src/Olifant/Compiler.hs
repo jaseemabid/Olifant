@@ -20,10 +20,15 @@ type Compiler a = Olifant Env a
 
 -- * Exposed API
 
--- | Top level API of the module
+-- | Default environment
+environment :: Env
+environment = Map.fromList [
+    ("sum", Ref "sum" 0 (TInt :> TInt :> TInt) Global)
+  ]
 
+-- | Top level API of the module
 compile :: [Calculus] -> Either Error [Core]
-compile ls = evalM (structure ls >>= infer >>= rename >>= verify) mempty
+compile ls = evalM (structure ls >>= infer >>= rename >>= verify) environment
 
 -- * State Management
 
@@ -55,17 +60,21 @@ ty (Let ref _)      = rty ref
 -- | Return type of a type
 retT :: Ty -> Ty
 retT (_ :> tb) = retT tb
-retT t             = t
+retT t         = t
 
--- | Arguments of a type
+-- | Argument of a type; the curried way
 argT :: Ty -> Ty
 argT (ta :> _) = ta
-argT t             = t
+argT t         = t
 
--- | Arguments of a type
+-- | Arity of a type
 arity :: Ty -> Int
-arity (_ :> t) = 1 + arity t
-arity _            = 0
+arity t = length (flatT t) - 1
+
+-- | Flatten a type
+flatT :: Ty -> [Ty]
+flatT (ta :> tb) = ta: flatT tb
+flatT t          = [t]
 
 -- | Make function type out of the argument types & body type
 unapply :: Ty -> [Ty] -> Ty

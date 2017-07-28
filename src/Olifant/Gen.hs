@@ -98,17 +98,16 @@ define g = do
 declare :: Name -> Ty -> Codegen ()
 declare n t = define f
   where
-    f =
-        functionDefaults
-        { name = n
-        , parameters = ([Parameter at an [] | (at, an) <- params t], False)
-        , returnType = native $ retT t
-        , basicBlocks = []
-        }
+    f = functionDefaults { name = n
+                         , parameters = (params t, False)
+                         , returnType = native $ retT t
+                         , basicBlocks = []}
+
     -- | Ty to list
-    params :: Ty -> [(Type, Name)]
-    params (ta :> _) = [(native ta, "_")]
-    params _             = []
+    params :: Ty -> [Parameter]
+    params t1 = case unsnoc $ flatT t1 of
+      Just (ts, _) -> [Parameter (native ti) "_" [] | ti <- ts]
+      Nothing      -> []
 
 -- * Manipulate `BlockState`
 --
@@ -289,7 +288,9 @@ genm prog = execM (run prog) genState >>= return . mod
   where
     -- | Step through the AST and _throw_ away the results
     run :: [Core] -> Codegen ()
-    run cs = mapM_ emit $ init cs ++ [entry]
+    run cs = do
+        declare "sum" $ TInt :> TInt :> TInt
+        mapM_ emit $ init cs ++ [entry]
       where
         tt :: Ty
         tt = TInt :> TInt
