@@ -8,6 +8,7 @@ Description : Core languages of the compiler
 
 module Olifant.Core where
 
+import Data.Text        (pack)
 import Protolude        hiding ((<>))
 import Text.Parsec      (ParseError)
 import Text.PrettyPrint
@@ -125,14 +126,15 @@ localized computation = get >>= \old -> computation <* put old
 --
 -- These functions are in core to avoid circular dependency between core and
 -- pretty printer module.
-arrow, dot, lambda, lett :: Doc
+arrow, lambda :: Doc
 arrow = char '→'
 lambda = char 'λ'
-dot = char '.'
-lett = text "let"
 
 class D a where
     p :: a -> Doc
+
+    render :: a -> Text
+    render a = pack $ Text.PrettyPrint.render (p a)
 
 instance D Ref where
     p (Ref n i t Local)  = char '%' <> text (toS n) <> int i <> colon <> p t
@@ -141,9 +143,9 @@ instance D Ref where
 
 -- [TODO] - Fix type pretty printer for higher order functions
 instance D Ty where
-    p TUnit          = "∅"
-    p TInt           = "i"
-    p TBool          = "b"
+    p TUnit      = "∅"
+    p TInt       = "i"
+    p TBool      = "b"
     p (ta :> tb) = p ta <> arrow <> p tb
 
 instance D Literal where
@@ -151,10 +153,17 @@ instance D Literal where
     p (Bool True)  = "#t"
     p (Bool False) = "#t"
 
+instance D Calculus where
+    p (CLit a)          = p a
+    p (CVar ty name)    = p ty <> text (toS name)
+    p (CLam name _as _) = text (toS name) <+> colon -- <+> p as
+    p (CApp f e)        = p f <+> p e
+    p (CLet t var val)  = text (toS var) <> p t <+> equals <+> p val
+
 instance D Core where
     p (Lit a)       = p a
     p (Var ref)     = p ref
-    p (Lam r a _)   = lambda <> p r <> dot <> p a
+    p (Lam r a _)   = lambda <> p r <> equals <> p a
     p (App f e)     = p f <+> p e
     p (Let var val) = p var <+> equals <+> p val
 

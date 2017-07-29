@@ -26,19 +26,19 @@ module Olifant.Gen where
 import Olifant.Core
 import Olifant.Compiler hiding (verify)
 
-import Prelude   (head, init, last)
+import Prelude (head, init, last)
 import Protolude hiding (Type, head, local, mod)
 
-import Data.ByteString.Short      (toShort)
--- import LLVM.Analysis              (verify)
+
+import Data.ByteString.Short (toShort)
 import LLVM.AST
 import LLVM.AST.Attribute
 import LLVM.AST.CallingConvention
 import LLVM.AST.Constant
 import LLVM.AST.Global
 import LLVM.AST.Type
-import LLVM.Context               (withContext)
-import LLVM.Module                (moduleLLVMAssembly, withModuleFromAST)
+import LLVM.Context (withContext)
+import LLVM.Module (moduleLLVMAssembly, withModuleFromAST)
 import LLVM.PassManager
 
 -- | State of the complete program
@@ -109,7 +109,7 @@ declare (Ref n _ t Extern) = define f
       Just (ts, _) -> [Parameter (native ti) "_" [] | ti <- ts]
       Nothing      -> []
 
-declare ref = throwError $ GenError $ "Cannot extern " <> (show ref :: Text)
+declare ref = throwError $ GenError $ "Cannot extern " <> render ref
 
 -- * Manipulate `BlockState`
 --
@@ -201,9 +201,8 @@ op r@(Ref _ _ t Extern) = externf r >>= load t
 --
 -- > %f -> @f
 externf :: Ref -> Codegen Operand
-externf (Ref n _ _ Local) =
-  -- [TODO] - Replace show with pp
-  throwError $ GenError $ "Attempt to externf local variable " <> show n
+externf r@(Ref _ _ _ Local) =
+  throwError $ GenError $ "Attempt to externf local variable " <> render r
 externf (Ref n _ t _) =
   return $ ConstantOperand $ GlobalReference (native t) $ lname n
 
@@ -265,7 +264,7 @@ emit (Lam r@(Ref n _i t Global) refs body) = do
     params = [(native $ rty ref, lname $ rname ref) | ref <- refs]
 
 -- | Apply something that is not a function
-emit (Lam ref _ _) = err $ "Malformed lambda definition " <> show ref
+emit (Lam ref _ _) = err $ "Malformed lambda definition " <> render ref
 
 -- | Add a constant global variable
 emit (Let ref val) =

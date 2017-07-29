@@ -9,8 +9,8 @@ module Olifant.Compiler where
 
 import           Olifant.Core
 
+import           Protolude hiding (Const, panic)
 import qualified Data.Map.Strict as Map
-import           Protolude       hiding (Const, panic)
 
 -- | Env maps textual representation to a refined reference
 type Env = Map Text Ref
@@ -101,7 +101,7 @@ structure = \case
     decl :: Calculus -> Compiler Calculus
     decl c@CLet{} = return c
     decl c@CLam{} = return c
-    decl c = serr $ "Expected let expression, got " <> show c <> " instead"
+    decl c = serr $ "Expected let expression, got " <> render c <> " instead"
 
     -- Verify the last expression
     main CLam{} = serr "Body can't be a function declaration"
@@ -185,7 +185,7 @@ infer = mapM emit
           let r = Ref var 0 (ty $ Lit lit) Global
           extend var r
           return $ Let r lit
-        err -> throwError $ SyntaxError $ show err
+        err -> throwError $ SyntaxError $ toS . render $ err
 
 -- | Rename core to avoid shadowing
 rename :: [Core] -> Compiler [Core]
