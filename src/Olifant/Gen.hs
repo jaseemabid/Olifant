@@ -43,9 +43,9 @@ import LLVM.PassManager
 
 -- | State of the complete program
 data GenState = GenState
-    { blocks  :: [BlockState] -- Blocks, ordered and named
-    , counter :: Int -- Number of unnamed variables
-    , mod     :: Module -- The LLVM Module pointer
+    { blocks  :: [BlockState] -- ^ Blocks, ordered and named
+    , counter :: Int          -- ^ Number of unnamed variables
+    , mod     :: Module       -- ^ The LLVM Module pointer
     }
 
 -- | State of a single block
@@ -57,9 +57,9 @@ data GenState = GenState
 --
 -- As of now, a function contains just one block.
 data BlockState = BlockState
-    { bname :: Text -- Name of the block
-    , stack :: [Named Instruction] -- List of operations
-    , term  :: Maybe (Named Terminator) -- Block terminator
+    { bname :: Text                     -- ^ Name of the block
+    , stack :: [Named Instruction]      -- ^ List of operations
+    , term  :: Maybe (Named Terminator) -- ^ Block terminator
     }
 
 -- | Codegen monad is Olifant monad with state specialized to `GenState`
