@@ -21,7 +21,7 @@ Ref: http://www.aosabook.org/en/ghc.html § No Symbol Table
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE OverloadedStrings     #-}
 
-module Olifant.Gen where
+module Olifant.Gen (gen) where
 
 import Olifant.Core
 import Olifant.Compiler hiding (verify)
@@ -150,18 +150,6 @@ unnamed t ins = do
         modify $ \s -> s {counter = n + 1}
         return $ UnName . fromIntegral $ n
 
--- | Add the instruction to the stack with a specific name.
---
---  - Takes an expression of the form @Add 1 2@ and a name @%foo@
---  - Adds @%foo = Add 1 2@ to the stack
---  - Returns @%foo@
---
-named :: Ty -> Text -> Instruction -> Codegen Operand
-named t str ins = push (op' := ins) >> return (LocalReference (native t) op')
-  where
-    op' :: Name
-    op' = lname str
-
 -- | Helper function to convert a Text -> ByteString -> ShortByteString -> Name
 lname :: Text -> Name
 lname = Name . toShort . toS
@@ -171,15 +159,6 @@ lname = Name . toShort . toS
 -- | Fetch a variable from memory
 load :: Ty -> Operand -> Codegen Operand
 load t var = unnamed t $ Load False var Nothing 0 []
-
--- | Make an `alloca` instruction
-alloca :: Ty -> Maybe Text -> Codegen Operand
-alloca t Nothing    = unnamed t $ Alloca (native t) Nothing 0 []
-alloca t (Just ref) = named t ref $ Alloca (native t) Nothing 0 []
-
--- | Add 2 integers
-add :: Operand -> Operand -> Instruction
-add lhs rhs = LLVM.AST.Add False False lhs rhs []
 
 -- | Create a simple block from a list of instructions and a terminator
 basicBlock :: [Named Instruction] -> Named Terminator -> BasicBlock
