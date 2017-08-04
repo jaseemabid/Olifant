@@ -178,8 +178,9 @@ infer = mapM emit
             | otherwise = Nothing
           apply _ _ = Nothing
 
-    emit (CApp _ _ ) =
-      throwError $ SyntaxError "Higher order functions not supported _yet_"
+    emit (CApp f _) =
+      throwError $ SyntaxError $
+          "Expected function; got `" <> render f <> "` instead"
 
     emit (CLet _t var val) =
       emit val >>= \case
