@@ -23,10 +23,6 @@ import Text.Parsec hiding (space, spaces)
 -- @ParsecT s u m ui@ is a parser with stream type s, user state type u,
 -- underlying monad m and return type a. Parsec is strict in the user state.
 
--- | Special symbols
-specials :: String
-specials = [':', 'λ', '#', '\\', '/', ';', '\n']
-
 -- | Handle a single space. Parsec version consumes new line as well
 space :: Parsec Text st Char
 space = char ' '
@@ -63,7 +59,18 @@ bool = CLit . Bool . (== "#t") <$> (try (string "#t") <|> string "#f")
 
 -- | Parse an identifier
 identifier :: Parsec Text st Text
-identifier = toS <$> many1 (satisfy $ \c -> isAlpha c && (c `notElem` specials))
+identifier = toS <$> many1 (satisfy ok)
+  where
+    ok :: Char -> Bool
+    ok c = (isAlpha c || c `elem` allowed) && (c `notElem` specials)
+
+    -- | Special symbols
+    specials :: String
+    specials = [':', 'λ', '#', '\\', '/', ';', '\n']
+
+    -- | Special symbols allowed in identifiers
+    allowed :: String
+    allowed = ['?', '_']
 
 -- | Parse a word as an identifier
 symbol :: Parsec Text st Calculus
