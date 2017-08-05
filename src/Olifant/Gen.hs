@@ -26,9 +26,8 @@ module Olifant.Gen (gen) where
 import Olifant.Core
 import Olifant.Compiler hiding (verify)
 
-import Prelude (head, init, last)
+import Prelude (init, last)
 import Protolude hiding (Type, head, local, mod)
-
 
 import Data.ByteString.Short (toShort)
 import LLVM.AST
@@ -44,6 +43,7 @@ import LLVM.PassManager
 -- | State of the complete program
 data GenState = GenState
     { blocks  :: [BlockState] -- ^ Blocks, ordered and named
+    , active  :: Text
     , counter :: Int          -- ^ Number of unnamed variables
     , mod     :: Module       -- ^ The LLVM Module pointer
     }
@@ -71,9 +71,10 @@ type Codegen a = Olifant GenState a
 
 -- | Default `GenState`
 genState :: GenState
-genState = GenState {blocks = []
-                  , mod = defaultModule {moduleName = "calc"}
-                  , counter = 0}
+genState = GenState { blocks = []
+                    , active = "main"
+                    , mod = defaultModule {moduleName = "calc"}
+                    , counter = 0}
 
 -- | Default `BlockState`
 blockState :: Ref -> BlockState
@@ -109,26 +110,33 @@ declare (Ref n _ t Extern) = define f
       Just (ts, _) -> [Parameter (native ti) "_" [] | ti <- ts]
       Nothing      -> []
 
-declare ref = throwError $ GenError $ "Cannot extern " <> render ref
+declare ref = err $ "Cannot extern " <> render ref
 
 -- * Manipulate `BlockState`
---
+
 -- | Get the current block
--- [TODO] - Use named blocks instead of head
 current :: Codegen BlockState
-current = head <$> gets blocks
+current = do
+    block <- gets active
+    bs <- gets (filter (\b -> bname b == block) . blocks)
+    case bs of
+        [b] -> return b
+        _   -> err $ "Error finding unique block " <> block
+
+-- | Replace a named block
+replace :: BlockState -> Codegen ()
+replace block = modify $ \s -> s {blocks = map r (blocks s) }
+  where
+    r :: BlockState -> BlockState
+    r b
+      | bname block == bname b = block
+      | otherwise              = b
 
 -- | Push a named instruction to the stack of the active block
 push :: Named Instruction -> Codegen ()
 push ins = do
-    active <- current
-    let block = active {stack = stack active ++ [ins]}
-    modify $ \s -> s {blocks = replace (blocks s) block}
-      -- Replace first block with new block
-  where
-    replace :: [BlockState] -> BlockState -> [BlockState]
-    replace (_:xs) newBlock = newBlock : xs
-    replace _ _             = notImplemented
+    active' <- current
+    replace $ active' {stack = stack active' ++ [ins]}
 
 -- | Name an instruction and add to stack.
 --
@@ -181,9 +189,9 @@ op r@(Ref _ _ t Extern) = externf r >>= load t
 -- > %f -> @f
 externf :: Ref -> Codegen Operand
 externf r@(Ref _ _ _ Local) =
-  throwError $ GenError $ "Attempt to externf local variable " <> render r
+    err $ "Attempt to externf local variable " <> render r
 externf (Ref n _ t _) =
-  return $ ConstantOperand $ GlobalReference (native t) $ lname n
+    return $ ConstantOperand $ GlobalReference (native t) $ lname n
 
 -- | Map from Olifant types to LLVM types
 native :: Ty -> Type
@@ -222,20 +230,15 @@ emit (App ref@(Ref _ _ t scope) vals) = do
 
 -- | Top level lambda expression
 emit (Lam r@(Ref n _i t Global) refs body) = do
-    -- [TODO] - Localize this computation
-    -- Make a new block for this function and add to `GenState`
-    modify $ \s -> s {blocks = blockState r : blocks s}
+    modify $ \s -> s {active = n, blocks = blockState r : blocks s}
     result <- emit body
     term' <- terminator result
     instructions <- stack <$> current
-    let fn =
-            functionDefaults
-            { name = lname n
-            , parameters =
-                  ([Parameter tipe nm [] | (tipe, nm) <- params], False)
-            , returnType = native $ retT t
-            , basicBlocks = [basicBlock instructions term']
-            }
+    let fn = functionDefaults {
+          name = lname n
+        , parameters = ([Parameter tipe nm [] | (tipe, nm) <- params], False)
+        , returnType = native $ retT t
+        , basicBlocks = [basicBlock instructions term']}
     define fn
     op r
   where
