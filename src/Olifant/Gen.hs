@@ -21,7 +21,7 @@ Ref: http://www.aosabook.org/en/ghc.html § No Symbol Table
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE OverloadedStrings     #-}
 
-module Olifant.Gen (gen) where
+module Olifant.Gen where
 
 import Olifant.Core
 import Olifant.Compiler hiding (verify)
@@ -184,9 +184,8 @@ op   (Ref n _ t Local)  = return $ LocalReference (native t) $ lname n
 op r@(Ref _ _ t Global) = externf r >>= load t
 op r@(Ref _ _ t Extern) = externf r >>= load t
 
--- | Make an operand out of a global function
+-- | Make an operand out of a global function;  @%f -> \@f@
 --
--- > %f -> @f
 externf :: Ref -> Codegen Operand
 externf r@(Ref _ _ _ Local) =
     err $ "Attempt to externf local variable " <> render r
@@ -289,8 +288,9 @@ genm prog = execM (run prog) genState >>= return . mod
 -- | Tweak passes of LLVM compiler
 --
 -- More info on opt passes:
---   - http://www.stephendiehl.com/llvm/#optimization-passes
---   - https://www.stackage.org/haddock/nightly-2017-06-28/llvm-hs-4.2.0/LLVM-PassManager.html
+--
+--  - http://www.stephendiehl.com/llvm/#optimization-passes
+--  - https://www.stackage.org/haddock/nightly-2017-06-28/llvm-hs-4.2.0/LLVM-PassManager.html
 passes :: PassSetSpec
 passes = defaultCuratedPassSetSpec {optLevel = Just 0}
 

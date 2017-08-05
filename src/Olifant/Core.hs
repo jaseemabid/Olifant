@@ -71,8 +71,8 @@ data Ref = Ref
 --
 -- References:
 --
--- https://ghc.haskell.org/trac/ghc/wiki/Commentary/Compiler/CoreSynType
--- http://blog.ezyang.com/2013/05/the-ast-typing-problem/
+--  - https://ghc.haskell.org/trac/ghc/wiki/Commentary/Compiler/CoreSynType
+--  - http://blog.ezyang.com/2013/05/the-ast-typing-problem/
 --
 data Core
   = Lit Literal
