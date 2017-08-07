@@ -70,7 +70,7 @@ identifier = toS <$> many1 (satisfy ok)
 
     -- | Special symbols allowed in identifiers
     allowed :: String
-    allowed = ['?', '_']
+    allowed = ['?', '!', '_', '+', '-', '/', '*', '^', '<', '>', '$']
 
 -- | Parse a word as an identifier
 symbol :: Parsec Text st Calculus
@@ -100,7 +100,7 @@ equals = CVar TUnit . toS <$> string "=" *> return Eql
 
 -- | A term, which is anything except lambda application
 term :: Parsec Text st Calculus
-term = symbol <|> bool <|> number <|> equals
+term = bool <|> number <|> symbol <|> equals
 
 -- | Parse a single calculus expression
 calculus :: Parsec Text st Calculus
