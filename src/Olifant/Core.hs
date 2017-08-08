@@ -140,11 +140,14 @@ instance D Ref where
     p (Ref n i t Global) = char '@' <> text (toS n) <> int i <> colon <> p t
     p (Ref n i t Extern) = char '^' <> text (toS n) <> int i <> colon <> p t
 
--- [TODO] - Fix type pretty printer for higher order functions
 instance D Ty where
     p TUnit      = "∅"
     p TInt       = "i"
     p TBool      = "b"
+    -- Pretty printing higher order functions is way more messed up than I
+    -- expected it to be
+    p (ta@(_ :> _) :> tb) = parens (p ta) <> arrow <> p tb
+    p (ta :> (tb@(_ :> _) :> tc)) = p ta <> arrow <> parens (p tb) <> arrow <> p tc
     p (ta :> tb) = p ta <> arrow <> p tb
 
 instance D Literal where
@@ -172,7 +175,7 @@ instance D Error where
     p (ParseError t) = hang (text "Parser Error") 4 $ text (toS t)
     p (SyntaxError t) = hang (text "Syntax Error") 4 $ text (toS t)
     p (UndefinedError t) = text "Undefined variable" <+> text (toS t)
-    p (TyError culprit) = hang (text "Type Error") 4 (p culprit)
+    p (TyError culprit) = text "Type Error in" <+> p culprit
 
 instance D a => D [a] where
     p xs = vcat $ map p xs
