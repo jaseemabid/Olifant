@@ -119,16 +119,15 @@ term1 :: Parser Calculus
 term1 = lexeme $ bool <|> number <|> var <|> equals
 
 -- | A sequence of terms, optionally parenthesized
-term :: Parser [Calculus]
-term = parens term <|> many term1
+term :: Parser Calculus
+term = parens term <|> (many term1 >>= handle)
 
--- | Parse a single calculus expression
 calculus :: Parser Calculus
-calculus = between sc sep term >>= handle
+calculus = manyTill term sep >>= handle
 
 -- | Parse the whole program; split by new line
 parser :: Parser [Calculus]
-parser = many calculus <* eof
+parser = many (space *> calculus) <* eof
 
 parse' :: Parser [Calculus] -> Text -> Either Error [Calculus]
 parse' _ "" = Right []
