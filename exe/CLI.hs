@@ -64,20 +64,21 @@ parseArgs ["-c"] =
         Just src ->
             case core src of
                 Right t -> print t
-                Left e  -> print e
+                Left e  -> putStrLn $ render e
         Nothing -> usage
 parseArgs [file] = do
     source <- readFile file
     ll <- exec source
     case ll of
         Right ir -> writeFile (replaceExtension file ".ll") ir
-        Left err -> print err
+        Left err -> putStrLn $ render err
+
 parseArgs _ =
     sin >>= \case
         Just src ->
             exec src >>= \case
                 Right ir -> putStrLn ir
-                Left err -> print err
+                Left err -> putStrLn $ render err
         Nothing -> usage
 
 main :: IO ()

@@ -133,7 +133,7 @@ parse' :: Parser [Calculus] -> Text -> Either Error [Calculus]
 parse' _ "" = Right []
 parse' p' input =
     case runParser p' "" (toS input) of
-        Left err  -> Left $ ParseError err
+        Left err  -> Left $ ParseError $ toS $ parseErrorPretty' input err
         Right val -> Right val
 
 -- | Parse source and return AST

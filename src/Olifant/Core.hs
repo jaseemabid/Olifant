@@ -10,8 +10,6 @@ module Olifant.Core where
 
 import Data.Text        (pack)
 import Protolude        hiding ((<>))
-import Text.Megaparsec      (ParseError)
-import Text.Megaparsec.Stream    (Token)
 import Text.PrettyPrint
 
 -- | All the known types
@@ -98,7 +96,7 @@ type Mach = Core
 data Error
     = GenError Text
     | Panic Text
-    | ParseError (ParseError (Token Text) Void)
+    | ParseError Text
     | SyntaxError Text
     | UndefinedError Text
     | TyError {expr :: Core}
@@ -167,6 +165,14 @@ instance D Core where
     p (Lam r a _)   = lambda <> p r <> equals <> p a
     p (App f e)     = p f <+> p e
     p (Let var val) = p var <+> equals <+> p val
+
+instance D Error where
+    p (GenError t) = hang (text "Error in code generator") 4 $ text (toS t)
+    p (Panic t) = hang (text "Compiler panic; this is unexpected") 4 $ text (toS t)
+    p (ParseError t) = hang (text "Parser Error") 4 $ text (toS t)
+    p (SyntaxError t) = hang (text "Syntax Error") 4 $ text (toS t)
+    p (UndefinedError t) = text "Undefined variable" <+> text (toS t)
+    p (TyError culprit) = hang (text "Type Error") 4 (p culprit)
 
 instance D a => D [a] where
     p xs = vcat $ map p xs
