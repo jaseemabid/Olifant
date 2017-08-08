@@ -25,6 +25,7 @@ library
                      , containers
                      , llvm-hs
                      , llvm-hs-pure
+                     , megaparsec
                      , mtl
                      , parsec
                      , pretty
@@ -58,6 +59,7 @@ test-suite Olifant-test
                      , bytestring
                      , llvm-hs
                      , llvm-hs-pure
+                     , megaparsec
                      , parsec
                      , protolude
                      , tasty

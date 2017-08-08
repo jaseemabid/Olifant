@@ -10,7 +10,8 @@ module Olifant.Core where
 
 import Data.Text        (pack)
 import Protolude        hiding ((<>))
-import Text.Parsec      (ParseError)
+import Text.Megaparsec      (ParseError)
+import Text.Megaparsec.Stream    (Token)
 import Text.PrettyPrint
 
 -- | All the known types
@@ -97,7 +98,7 @@ type Mach = Core
 data Error
     = GenError Text
     | Panic Text
-    | ParseError ParseError
+    | ParseError (ParseError (Token Text) Void)
     | SyntaxError Text
     | UndefinedError Text
     | TyError {expr :: Core}
