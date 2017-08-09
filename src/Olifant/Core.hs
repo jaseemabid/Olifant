@@ -126,8 +126,8 @@ localized computation = get >>= \old -> computation <* put old
 -- These functions are in core to avoid circular dependency between core and
 -- pretty printer module.
 arrow, lambda :: Doc
-arrow = char '→'
-lambda = char 'λ'
+arrow = text "→"
+lambda = text "λ"
 
 class D a where
     p :: a -> Doc
@@ -136,9 +136,9 @@ class D a where
     render a = pack $ Text.PrettyPrint.render (p a)
 
 instance D Ref where
-    p (Ref n i t Local)  = char '%' <> text (toS n) <> int i <> colon <> p t
-    p (Ref n i t Global) = char '@' <> text (toS n) <> int i <> colon <> p t
-    p (Ref n i t Extern) = char '^' <> text (toS n) <> int i <> colon <> p t
+    p (Ref n i t Local)  = text "%" <> text (toS n) <> int i <> colon <> p t
+    p (Ref n i t Global) = text "@" <> text (toS n) <> int i <> colon <> p t
+    p (Ref n i t Extern) = text "^" <> text (toS n) <> int i <> colon <> p t
 
 instance D Ty where
     p TUnit      = "∅"
@@ -158,7 +158,10 @@ instance D Literal where
 instance D Calculus where
     p (CLit a)          = p a
     p (CVar ty name)    = p ty <> text (toS name)
-    p (CLam name _as _) = text (toS name) <+> colon -- <+> p as
+    p (CLam name as _)  = text (toS name) <+> hsep (map pp as)
+      where
+        pp :: (Ty, Text) -> Doc
+        pp (t, n) = text (toS n) <> colon <> p t
     p (CApp f e)        = p f <+> p e
     p (CLet t var val)  = text (toS var) <> p t <+> equals <+> p val
 
