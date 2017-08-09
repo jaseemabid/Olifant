@@ -251,20 +251,22 @@ emit (Lam ref _ _) = err $ "Malformed lambda definition " <> render ref
 emit (Let ref val) =
     emit (Lit val) >>= \case
       res@(ConstantOperand value') -> do
-        define $ global' value'
+        let t = case val of
+              (Number _) -> TInt;
+              (Bool _)   -> TBool
+        define $ global' t value'
         return res
       res@LocalReference{} ->
         return res
       res@MetadataOperand{} ->
         return res
   where
-    global' :: Constant -> Global
-    global' var =
-        globalVariableDefaults
-        { name = Name $ toShort $ toS $ rname ref
-        , initializer = Just var
-        , type' = native $ ty (Lit val)
-        }
+    global' :: Ty -> Constant -> Global
+    global' t var = globalVariableDefaults {
+        name = Name $ toShort $ toS $ rname ref
+      , initializer = Just var
+      , type' = native t
+      }
 
 -- * Code generation
 --

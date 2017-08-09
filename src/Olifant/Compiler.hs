@@ -56,16 +56,26 @@ append a b = a ++ [b]
 
 -- * Type helpers
 
--- | Get the type of a *well typed* core expression
---
--- This function is reliable only after the infer pass; encode this with types.
-ty :: Core -> Ty
-ty (Lit (Number _)) = TInt
-ty (Lit (Bool _))   = TBool
-ty (Var ref)        = rty ref
-ty (Lam ref _ _)    = rty ref
-ty (App ref _)      = rty ref
-ty (Let ref _)      = rty ref
+-- | Get the type of a core expression
+ty :: Core -> Compiler Ty
+ty (Lit (Number _)) = return TInt
+ty (Lit (Bool _))   = return TBool
+ty (Var ref)        = return $ rty ref
+ty (Lam ref _ _)    = return $ rty ref
+ty (App ref args)   = do
+    -- Type check args
+    args' <- mapM ty args
+
+    --  Arity check
+    when (arity (rty ref) /= length args) $
+        throwError TyError {expr = App ref args}
+
+    -- Type matching
+    case apply (rty ref) args' of
+        Just t  -> return t
+        Nothing -> throwError TyError {expr = App ref args}
+
+ty (Let ref _)      = return $ rty ref
 
 -- | Return type of a type
 retT :: Ty -> Ty
@@ -86,7 +96,16 @@ flatT :: Ty -> [Ty]
 flatT (ta :> tb) = ta: flatT tb
 flatT t          = [t]
 
--- | Make function type out of the argument types & body type
+-- [TODO] - Change type to Either Ty TyError
+-- | Apply arguments to a function at the type level
+apply :: Ty -> [Ty] -> Maybe Ty
+apply ta [] = return ta
+apply (ta :> tb) (tz:ts)
+    | tz == ta = apply tb ts
+    | otherwise = Nothing
+apply _ _ = Nothing
+
+-- | Make function type from the argument types & body type
 unapply :: Ty -> [Ty] -> Ty
 unapply = foldr (:>)
 
@@ -141,9 +160,13 @@ infer = mapM emit
             gets (Map.union fenv) >>= put
             emit body
 
+        t' <- ty body'
+
         -- Compute the type of the function from args and body
-        -- [TODO] - Inline `unapply` function
-        let t = unapply (ty body') (map rty rargs)
+        let t = unapply t' (map rty rargs)
+
+        -- trace ((show ("TRACE", ty body', t)) :: Text) $ return ()
+
         let fref = Ref {rname = name, ri = 0, rty = t, rscope = Global}
 
         extend name fref
@@ -160,23 +183,9 @@ infer = mapM emit
         -- Is the function even defined? fn' will be the expected type
         Var fn' <- emit $ CVar t fn
         args' <- mapM emit args
-
-        --  Arity check
-        when (arity (rty fn') /= length args') $
-          throwError TyError {expr = App fn' args'}
-
-        -- Type matching
-        case apply (rty fn') (map ty args') of
-            Just _  -> return $ App fn' args'
-            Nothing -> throwError TyError {expr = App fn' args'}
-        where
-          -- [TODO] - Change type to Either Ty TyError
-          apply :: Ty -> [Ty] -> Maybe Ty
-          apply ta [] = return ta
-          apply (ta :> tb) (tz:ts)
-            | tz == ta = apply tb ts
-            | otherwise = Nothing
-          apply _ _ = Nothing
+        let f = App fn' args'
+        void $ ty f
+        return f
 
     emit (CApp f _) =
       throwError $ SyntaxError $
@@ -189,7 +198,7 @@ infer = mapM emit
           extend var r
           return $ Lam r args body
         Lit lit -> do
-          let r = Ref var 0 (ty $ Lit lit) Global
+          r <- ty (Lit lit) >>= \t' -> return $ Ref var 0 t' Global
           extend var r
           return $ Let r lit
         err -> throwError $ SyntaxError $ toS . render $ err
