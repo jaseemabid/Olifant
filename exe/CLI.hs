@@ -57,7 +57,7 @@ parseArgs ["-p"] =
         Just src ->
             case parse src of
                 Right t -> print t
-                Left e  -> print e
+                Left e  -> putStrLn $ render e
         Nothing -> usage
 parseArgs ["-c"] =
     sin >>= \case
