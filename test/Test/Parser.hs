@@ -35,14 +35,14 @@ vars = testCase "Variable definitions" $ do
 
 lam :: TestTree
 lam = testCase "λ definitions" $ do
-    expect "id x   = x"     [CLam "id" [(TUnit, "x")] (CVar TUnit "x")]
-    expect "id x:b = x"     [CLam "id" [(TBool, "x")] (CVar TUnit "x")]
-    expect "id x:i = x:i"   [CLam "id" [(TInt, "x")] (CVar TInt "x")]
-    expect "id x:i y:i = x" [CLam "id" [(TInt, "x"), (TInt, "y")] (CVar TUnit "x")]
+    expect "id x   = x"     [CLam "id" [(TUnit, "x")] [CVar TUnit "x"]]
+    expect "id x:b = x"     [CLam "id" [(TBool, "x")] [CVar TUnit "x"]]
+    expect "id x:i = x:i"   [CLam "id" [(TInt, "x")] [CVar TInt "x"]]
+    expect "id x:i y:i = x" [CLam "id" [(TInt, "x"), (TInt, "y")] [CVar TUnit "x"]]
     expect "f x = x; g x = f x" x
   where
-    x = [ CLam "f" [(TUnit, "x")] (CVar TUnit "x")
-        , CLam "g" [(TUnit, "x")] (CApp (CVar TUnit "f") [CVar TUnit "x"])]
+    x = [ CLam "f" [(TUnit, "x")] [CVar TUnit "x"]
+        , CLam "g" [(TUnit, "x")] [CApp (CVar TUnit "f") [CVar TUnit "x"]]]
 
 application :: TestTree
 application = testCase "λ application" $ do
@@ -58,9 +58,9 @@ ll = testCase "Handle sequences of expressions" $ do
     expect "1;1"          [CLit $ Number 1, CLit $ Number 1]
     expect "1 \n 1"       [CLit $ Number 1, CLit $ Number 1]
     expect "id x = x; 1"
-      [CLam "id" [(TUnit, "x")] (CVar TUnit "x"), CLit $ Number 1]
+      [CLam "id" [(TUnit, "x")] [CVar TUnit "x"], CLit $ Number 1]
     expect "id x = x \n 1"
-      [CLam "id" [(TUnit, "x")] (CVar TUnit "x"), CLit $ Number 1]
+      [CLam "id" [(TUnit, "x")] [CVar TUnit "x"], CLit $ Number 1]
 
 -- * Helper functions
 expect :: Text -> [Calculus] -> Assertion

@@ -9,6 +9,7 @@ module Olifant.Compiler where
 
 import           Olifant.Core
 
+import           Prelude (last)
 import           Protolude hiding (Const, panic)
 import qualified Data.Map.Strict as Map
 
@@ -158,9 +159,9 @@ infer = mapM emit
     emit (CLam name args body) = do
         body' <- localized $ do
             gets (Map.union fenv) >>= put
-            emit body
+            mapM emit body
 
-        t' <- ty body'
+        t' <- ty $ last body'
 
         -- Compute the type of the function from args and body
         let t = unapply t' (map rty rargs)
@@ -222,7 +223,7 @@ free cs = concat <$> mapM emit cs
     emit (Var ref)           = maybeToList <$> fetch (rname ref)
     emit (Lam _fn args body) = do
         mapM_ (\arg -> modify (Map.insert (rname arg) arg)) args
-        emit body
+        concatMapM emit body
     emit (App ref args)      = do
       a <- maybeToList <$> fetch (rname ref)
       b <- concatMapM emit args

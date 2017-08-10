@@ -24,7 +24,7 @@ t1 = testCase "Identity function" $ t source @?= Right core
     core = [ Lam
              Ref {rname = "id", ri = 0, rty = TInt :> TInt, rscope = Global}
              [Ref {rname = "x", ri = 0, rty = TInt, rscope = Local}]
-             (Var Ref {rname = "x", ri = 0, rty = TInt, rscope = Local})
+             [Var Ref {rname = "x", ri = 0, rty = TInt, rscope = Local}]
            , App
              Ref {rname = "id", ri = 0, rty = TInt :> TInt, rscope = Global}
              [Lit (Number 42)]
@@ -40,7 +40,7 @@ t2 = testCase "Const function" $ t source @?= Right core
     core = [ Lam
              Ref {rname = "c", ri = 0, rty = TInt :> TInt, rscope = Global}
              [Ref {rname = "x", ri = 0, rty = TInt, rscope = Local}]
-             (Lit (Number 1))
+             [Lit (Number 1)]
            , App
              Ref {rname = "c", ri = 0, rty = TInt :> TInt, rscope = Global}
              [Lit (Number 42)]
@@ -81,7 +81,7 @@ global = testCase "Global Variables" $
                      , rscope = Global}
              [ Ref {rname = "a", ri = 0, rty = TInt, rscope = Local}
              , Ref {rname = "b", ri = 0, rty = TBool, rscope = Local}]
-             (Lit $ Number 42)
+             [Lit $ Number 42]
            , App Ref {rname = "f"
                      , ri = 0
                      , rty = TInt :> TBool :> TInt

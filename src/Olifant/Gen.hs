@@ -230,8 +230,8 @@ emit (App ref@(Ref _ _ t scope) vals) = do
 -- | Top level lambda expression
 emit (Lam r@(Ref n _i t Global) refs body) = do
     modify $ \s -> s {active = n, blocks = blockState r : blocks s}
-    result <- emit body
-    term' <- terminator result
+    result <- mapM emit body
+    term' <- terminator $ last result
     instructions <- stack <$> current
     let fn = functionDefaults {
           name = lname n
@@ -285,7 +285,7 @@ genm prog = execM (run prog) genState >>= return . mod
         r = Ref "olifant" 0 tt Global
 
         entry :: Core
-        entry = Lam r [] (last cs)
+        entry = Lam r [] cs
 
 -- | Tweak passes of LLVM compiler
 --

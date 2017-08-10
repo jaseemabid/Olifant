@@ -40,7 +40,7 @@ data Literal = Bool Bool | Number Int
 data Calculus
     = CLit Literal
     | CVar Ty Text
-    | CLam Text [(Ty, Text)] Calculus
+    | CLam Text [(Ty, Text)] [Calculus]
     | CApp Calculus [Calculus]
     | CLet Ty Text Calculus
     deriving (Eq, Show)
@@ -76,7 +76,7 @@ data Ref = Ref
 data Core
   = Lit Literal
   | Var Ref
-  | Lam Ref [Ref] Core
+  | Lam Ref [Ref] [Core]
   | App Ref [Core]
   | Let Ref Literal
   deriving (Eq, Show)
