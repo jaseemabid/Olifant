@@ -20,6 +20,16 @@ which can be read with Haddock.
 
     $ stack haddock --no-haddock-deps --open
 
+Olifant programs can be compiled to LLVM IR and then to native binaries with
+Clang.
+
+    $ stack exec olifant <<< 'sum 4 5' > a.ll
+    $ make a.out
+    $ ./a.out
+    9
+
+The compiler accepts programs from stdin or takes a file as argument.
+
 I would *LOVE* any code contributions. There is a [milestone][milestone] to
 track priority bugs and features if you are looking for some inspiration.
 
