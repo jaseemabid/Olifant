@@ -2,6 +2,13 @@
 {-|
 Module      : Olifant.Parser
 Description : First phase of the compilation
+
+Grammar:
+
+    A Program is a series of top level blocks
+    Blocks are separated by new lines or ;
+    Blocks contains a list of indented statements optionally separated by ;
+
 -}
 
 -- It's ok to throw away results of do notation in a parser. Disable the warning
@@ -146,6 +153,8 @@ calculus = L.nonIndented sc (L.indentBlock scn fn)
         -- Header is the unintended block, which could be a simple expression or
         -- function header
         header <- terms
+        -- This is probably wrong. Should call handle on each line and use
+        -- header only once
         return $ L.IndentMany Nothing (f header) term
 
     f :: [Calculus] -> [Calculus] -> Parser Calculus
