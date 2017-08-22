@@ -16,7 +16,7 @@ import Test.Tasty.HUnit
 tests :: TestTree
 tests = testGroup "Parser" ts
   where
-    ts = [literals, lam, application, vars, ll]
+    ts = [literals, lam, application, vars, ll, indent]
 
 literals :: TestTree
 literals = testCase "Literal numbers, identifiers and booleans" $ do
@@ -61,6 +61,14 @@ ll = testCase "Handle sequences of expressions" $ do
       [CLam "id" [(TUnit, "x")] [CVar TUnit "x"], CLit $ Number 1]
     expect "id x = x \n 1"
       [CLam "id" [(TUnit, "x")] [CVar TUnit "x"], CLit $ Number 1]
+
+indent :: TestTree
+indent = testCase "Indentation should be optional" $ do
+    expect "inc x = sum x 1"        e
+    expect "inc x =\n    sum x 1"   e
+  where
+    e = [CLam "inc" [(TInt, "x")] [
+            CApp (CVar TUnit "sum") [CVar TUnit "x", CLit (Number 1)]]]
 
 -- * Helper functions
 expect :: Text -> [Calculus] -> Assertion
