@@ -32,6 +32,7 @@ library
                      , protolude
                      , text
   default-language:    Haskell2010
+  -- -Wincomplete-uni-patterns -Wincomplete-record-updates -Wmissing-import-lists
   ghc-options:         -Wall -fwarn-tabs
   default-extensions:  NoImplicitPrelude, OverloadedStrings, DuplicateRecordFields
 
