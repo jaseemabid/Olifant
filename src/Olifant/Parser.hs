@@ -36,19 +36,9 @@ type Parser = Parsec Void String
 pattern Eql :: Calculus
 pattern Eql = CVar TUnit "__EQUAL__"
 
--- | Handle a single space.
---
--- Megaparsec version consumes new line as well and that is *NOT* what I want
---space1 :: Parser ()
---space1 = void $ char ' '
-
 -- | Comments, the Haskell way
 comment :: Parser ()
-comment = L.skipLineComment "#"
-
--- | Term separator
-sep :: Parser Char
-sep = char ';'
+comment = L.skipLineComment "--"
 
 -- | Space consumer, with newlines
 scn :: Parser ()
@@ -145,6 +135,11 @@ term :: Parser Calculus
 term = terms >>= handle
 
 -- | A single expression in the language
+--
+-- This function was the kind of pain impossible to explain. Megaparsec is a
+-- horrible PITA to understand and use correctly, which I'll avoid at all costs
+-- from now. A stream of tokens produced by Alex or happy is really the way to
+-- go. I've easily spend more than an hour per line in this function.
 calculus :: Parser Calculus
 calculus = L.nonIndented sc (L.indentBlock scn fn)
   where
@@ -153,6 +148,14 @@ calculus = L.nonIndented sc (L.indentBlock scn fn)
         -- Header is the unintended block, which could be a simple expression or
         -- function header
         header <- terms
+
+        -- If header contains a = and its not the end of the line, call handle
+        -- again. This is an extremely silly way to do this. I really should
+        -- have been dealing with a list of tokens *INCLUDING* newlines and
+        -- indentations.
+
+        trace (show ("hello", header) :: Text) $ return ()
+
         -- This is probably wrong. Should call handle on each line and use
         -- header only once
         return $ L.IndentMany Nothing (f header) term
@@ -180,6 +183,7 @@ handle ts  = case break (Eql ==) ts of
 
         -- Ensure all arguments are typed
         args <- mapM mkArgs as
+        -- body' <- handle body
         return $ CLam f args body
       where
         mkArgs :: Calculus -> Parser (Ty, Text)

@@ -35,40 +35,39 @@ vars = testCase "Variable definitions" $ do
 
 lam :: TestTree
 lam = testCase "λ definitions" $ do
-    expect "id x   = x"     [CLam "id" [(TUnit, "x")] [CVar TUnit "x"]]
-    expect "id x:b = x"     [CLam "id" [(TBool, "x")] [CVar TUnit "x"]]
-    expect "id x:i = x:i"   [CLam "id" [(TInt, "x")] [CVar TInt "x"]]
-    expect "id x:i y:i = x" [CLam "id" [(TInt, "x"), (TInt, "y")] [CVar TUnit "x"]]
-    expect "f x = x; g x = f x" x
-  where
-    x = [ CLam "f" [(TUnit, "x")] [CVar TUnit "x"]
-        , CLam "g" [(TUnit, "x")] [CApp (CVar TUnit "f") [CVar TUnit "x"]]]
-
-application :: TestTree
-application = testCase "λ application" $ do
-    expect "a b" d
-    expect " a  b " d
-    expect "a   b" d
-  where
-    d = [CApp (CVar TUnit "a") [CVar TUnit "b"]]
-
-ll :: TestTree
-ll = testCase "Handle sequences of expressions" $ do
-    expect "1; 1"         [CLit $ Number 1, CLit $ Number 1]
-    expect "1;1"          [CLit $ Number 1, CLit $ Number 1]
-    expect "1 \n 1"       [CLit $ Number 1, CLit $ Number 1]
-    expect "id x = x; 1"
-      [CLam "id" [(TUnit, "x")] [CVar TUnit "x"], CLit $ Number 1]
-    expect "id x = x \n 1"
-      [CLam "id" [(TUnit, "x")] [CVar TUnit "x"], CLit $ Number 1]
+    expect "id x   = x"      [CLam "id" [(TUnit, "x")] [CVar TUnit "x"]]
+    expect "id x:b = x"      [CLam "id" [(TBool, "x")] [CVar TUnit "x"]]
+    expect "id x:i = x:i"    [CLam "id" [(TInt, "x")] [CVar TInt "x"]]
+    expect "id x:i y:i = x"
+      [CLam "id" [(TInt, "x"), (TInt, "y")] [CVar TUnit "x"]]
+    expect "inc x = sum x 1"
+      [CLam "inc" [(TUnit, "x")] [CApp (CVar TUnit "sum") [ CVar TUnit "x"
+                                                          , CLit $ Number 1]]]
 
 indent :: TestTree
 indent = testCase "Indentation should be optional" $ do
     expect "inc x = sum x 1"        e
     expect "inc x =\n    sum x 1"   e
   where
-    e = [CLam "inc" [(TInt, "x")] [
-            CApp (CVar TUnit "sum") [CVar TUnit "x", CLit (Number 1)]]]
+    e = [CLam "inc" [(TInt, "x")] [CApp (CVar TUnit "sum") [ CVar TUnit "x"
+                                                           , CLit (Number 1)]]]
+
+application :: TestTree
+application = testCase "λ application" $ do
+    expect "a b" d
+    expect "a b " d
+    expect "a  b" d
+  where
+    d = [CApp (CVar TUnit "a") [CVar TUnit "b"]]
+
+ll :: TestTree
+ll = testCase "Handle sequences of expressions" $ do
+    expect "1\n1"        [CLit $ Number 1, CLit $ Number 1]
+    expect "1 \n1"       [CLit $ Number 1, CLit $ Number 1]
+    expect "id x = x \n1"
+      [CLam "id" [(TUnit, "x")] [CVar TUnit "x"], CLit $ Number 1]
+    expect "id x = x \n 1"
+      [CLam "id" [(TUnit, "x")] [CVar TUnit "x"], CLit $ Number 1]
 
 -- * Helper functions
 expect :: Text -> [Calculus] -> Assertion
