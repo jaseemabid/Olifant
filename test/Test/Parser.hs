@@ -5,7 +5,7 @@
 -- [todo] - Parser doesn't understand precedence with braces
 module Test.Parser (tests) where
 
-import Protolude hiding (bool)
+import Protolude hiding (bool, local)
 
 import Olifant.Core
 import Olifant.Parser
@@ -16,7 +16,7 @@ import Test.Tasty.HUnit
 tests :: TestTree
 tests = testGroup "Parser" ts
   where
-    ts = [literals, lam, application, vars, ll, indent]
+    ts = [literals, lam, application, vars, local, ll, indent]
 
 literals :: TestTree
 literals = testCase "Literal numbers, identifiers and booleans" $ do
@@ -51,6 +51,19 @@ indent = testCase "Indentation should be optional" $ do
   where
     e = [CLam "inc" [(TInt, "x")] [CApp (CVar TUnit "sum") [ CVar TUnit "x"
                                                            , CLit (Number 1)]]]
+
+local :: TestTree
+local = testCase "Support local variables" $ do
+    src <- readFile "examples/sum.ol"
+    expect src ast
+  where
+    ast = [
+        CLam "add" [(TInt, "a"), (TInt, "b"), (TInt, "c")] [
+            CLet TUnit "t" $ CApp (CVar TUnit "sum") [CVar TUnit "a", CVar TUnit "b"]
+          , CApp (CVar TUnit "sum") [CVar TUnit "t", CVar TUnit "c"]
+          ]
+      , CApp (CVar TUnit "add") [CLit (Number 1), CLit (Number 2), CLit (Number 3)]
+      ]
 
 application :: TestTree
 application = testCase "λ application" $ do
