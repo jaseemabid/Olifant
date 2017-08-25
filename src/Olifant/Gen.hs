@@ -27,9 +27,10 @@ import Olifant.Core
 import Olifant.Compiler hiding (verify)
 
 import Prelude (init, last)
-import Protolude hiding (Type, head, local, mod)
+import Protolude hiding (Type, concat, head, local, mod)
 
 import Data.ByteString.Short (toShort)
+
 import LLVM.AST
 import LLVM.AST.Attribute
 import LLVM.AST.CallingConvention
@@ -121,7 +122,8 @@ current = do
     bs <- gets (filter (\b -> bname b == block) . blocks)
     case bs of
         [b] -> return b
-        _   -> err $ "Error finding unique block " <> block
+        _   -> err $ "Unable to find unique block " <> block <> " in "
+               <> (show (map bname bs) :: Text)
 
 -- | Replace a named block
 replace :: BlockState -> Codegen ()
@@ -285,7 +287,7 @@ genm prog = execM (run prog) genState >>= return . mod
         r = Ref "olifant" 0 tt Global
 
         entry :: Core
-        entry = Lam r [] cs
+        entry = Lam r [] [last cs]
 
 -- | Tweak passes of LLVM compiler
 --
