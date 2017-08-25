@@ -136,10 +136,6 @@ term = terms >>= handle
 
 -- | A single expression in the language
 --
--- This function was the kind of pain impossible to explain. Megaparsec is a
--- horrible PITA to understand and use correctly, which I'll avoid at all costs
--- from now. A stream of tokens produced by Alex or happy is really the way to
--- go. I've easily spend more than an hour per line in this function.
 calculus :: Parser Calculus
 calculus = L.nonIndented sc (L.indentBlock scn fn)
   where
@@ -148,20 +144,23 @@ calculus = L.nonIndented sc (L.indentBlock scn fn)
         -- Header is the unintended block, which could be a simple expression or
         -- function header
         header <- terms
-
-        -- If header contains a = and its not the end of the line, call handle
-        -- again. This is an extremely silly way to do this. I really should
-        -- have been dealing with a list of tokens *INCLUDING* newlines and
-        -- indentations.
-
-        trace (show ("hello", header) :: Text) $ return ()
-
-        -- This is probably wrong. Should call handle on each line and use
-        -- header only once
         return $ L.IndentMany Nothing (f header) term
 
+    -- This function was the kind of pain impossible to explain. Megaparsec is a
+    -- horrible PITA to understand and use correctly, which I'll avoid at all
+    -- costs from now. A stream of tokens produced by Alex or happy is the way
+    -- to go. I really should have been dealing with a list of tokens
+    -- *INCLUDING* newlines and indentations.
     f :: [Calculus] -> [Calculus] -> Parser Calculus
-    f header body = handle $ header ++ body
+    f header body =
+        case break (Eql ==) header of
+            -- _ = \n
+            (_, [Eql]) -> handle $ header ++ body
+            -- _ = ...
+            (left, Eql: right) -> do
+                f' <- handle right
+                handle $ left ++ [Eql, f'] ++ body
+            _ -> handle $ header ++ body
 
 -- | Parse the whole program; split by new line
 parser :: Parser [Calculus]

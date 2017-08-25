@@ -46,8 +46,8 @@ lam = testCase "λ definitions" $ do
 
 indent :: TestTree
 indent = testCase "Indentation should be optional" $ do
-    expect "inc x = sum x 1"        e
-    expect "inc x =\n    sum x 1"   e
+    expect "inc x:i = sum x 1"        e
+    expect "inc x:i =\n    sum x 1"   e
   where
     e = [CLam "inc" [(TInt, "x")] [CApp (CVar TUnit "sum") [ CVar TUnit "x"
                                                            , CLit (Number 1)]]]
@@ -64,10 +64,12 @@ ll :: TestTree
 ll = testCase "Handle sequences of expressions" $ do
     expect "1\n1"        [CLit $ Number 1, CLit $ Number 1]
     expect "1 \n1"       [CLit $ Number 1, CLit $ Number 1]
+    -- No space before expression, start a new one
     expect "id x = x \n1"
       [CLam "id" [(TUnit, "x")] [CVar TUnit "x"], CLit $ Number 1]
-    expect "id x = x \n 1"
-      [CLam "id" [(TUnit, "x")] [CVar TUnit "x"], CLit $ Number 1]
+    -- Some space before expression, don't start a new one
+    expect "id x = x \n  1"
+      [CLam "id" [(TUnit, "x")] [CVar TUnit "x", CLit $ Number 1]]
 
 -- * Helper functions
 expect :: Text -> [Calculus] -> Assertion
