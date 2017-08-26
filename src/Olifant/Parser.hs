@@ -167,32 +167,42 @@ parser :: Parser [Calculus]
 parser = someTill calculus eof
 
 -- | Convert a series of terms into a Calculus expression
+-- [FIX] - Error is reported after the line, be more specific
 handle :: [Calculus] -> Parser Calculus
 handle []  = fail "Unexpected end of input!!"
 handle [x] = return x
 handle ts  = case break (Eql ==) ts of
-    -- Assignment; `a = 42`
-    ([CVar t variable], [Eql, val]) -> return $ CLet t variable val
+    -- ` = ..` should be a parse error, but handle it here too
+    ([], _)                       -> fail "Missing left hand side of = operator"
+
+    -- Assignment to literals is silly
+    ([CLit _], _)                 -> fail "Illegal assignment to literals"
+
+    -- Literals are not functions
+    (CLit _: _, _)                -> fail "Function names cannot be literals"
+
+    -- Assignment; `a = 42` or `x = sum 1 2`
+    ([CVar t variable], Eql: rhs) -> handle rhs >>= return . CLet t variable
 
     -- Assignment to non text value; `3 = 4`
-    ([_], [Eql, _])          -> fail "Illegal Assignment"
+    ([_], [Eql, _])               -> fail "Illegal Assignment"
 
     -- Function definition
-    (CVar _ f: as, Eql: body) -> do
+    (CVar _ f: as, Eql: body)     -> do
 
         -- Ensure all arguments are typed
         args <- mapM mkArgs as
-        -- body' <- handle body
         return $ CLam f args body
       where
         mkArgs :: Calculus -> Parser (Ty, Text)
         mkArgs (CVar t val) = return (t, val)
-        mkArgs _ = fail "Expected typed variable as argument"
+        mkArgs _            = fail "Expected typed variable as argument"
 
      -- A sequence without a = should be an application
-    (f:args, []) -> return $ CApp f args
+    (f:args, [])                  -> return $ CApp f args
 
-    _ -> fail $ "Unable to parse\n" <> show ts
+    -- Fail for anything we don't explicitly handle
+    _                             -> fail $ "Unable to parse " <> show ts
 
 parse' :: Parser [Calculus] -> Text -> Either Error [Calculus]
 parse' _ "" = Right []
