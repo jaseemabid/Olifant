@@ -169,7 +169,7 @@ instance D Core where
     p (Lit a)       = p a
     p (Var ref)     = p ref
     p (Lam r a _)   = lambda <> p r <> equals <> p a
-    p (App f e)     = p f <+> p e
+    p (App f args)  = p f <+> hsep (map p args)
     p (Let var val) = p var <+> equals <+> p val
 
 instance D Error where
