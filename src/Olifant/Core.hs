@@ -136,9 +136,9 @@ class D a where
     render a = pack $ Text.PrettyPrint.render (p a)
 
 instance D Ref where
-    p (Ref n i t Local)  = text "%" <> text (toS n) <> int i <> colon <> p t
-    p (Ref n i t Global) = text "@" <> text (toS n) <> int i <> colon <> p t
-    p (Ref n i t Extern) = text "^" <> text (toS n) <> int i <> colon <> p t
+    p (Ref n _i t Local)  = text (toS n) <> colon <> p t
+    p (Ref n _i t Global) = text "@" <> text (toS n) <> colon <> p t
+    p (Ref n _i t Extern) = text "^" <> text (toS n) <> colon <> p t
 
 instance D Ty where
     p TUnit      = "∅"
