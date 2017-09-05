@@ -251,11 +251,12 @@ emit (Lam ref _ _) = err $ "Malformed lambda definition " <> render ref
 
 -- | Add a constant global variable
 emit (Let ref val) =
-    emit (Lit val) >>= \case
+    emit val >>= \case
       res@(ConstantOperand value') -> do
         let t = case val of
-              (Number _) -> TInt;
-              (Bool _)   -> TBool
+              (Lit (Number _)) -> TInt;
+              (Lit (Bool _))   -> TBool
+              _                -> error "Non literal global variable"
         define $ global' t value'
         return res
       res@LocalReference{} ->

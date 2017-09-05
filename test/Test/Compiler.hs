@@ -2,18 +2,18 @@
 
 module Test.Compiler (tests) where
 
-import Protolude hiding (intercalate)
+import Protolude hiding (intercalate, local)
 
 import Olifant.Compiler (compile)
 import Olifant.Core
 import Olifant.Parser
 
-import Data.Text (intercalate)
+import Data.Text (intercalate, lines)
 import Test.Tasty
 import Test.Tasty.HUnit
 
 tests :: TestTree
-tests = testGroup "Compiler" [t1, t2, t3, zombie, global]
+tests = testGroup "Compiler" [t1, t2, t3, zombie, global, local]
 
 t1 :: TestTree
 t1 = testCase "Identity function" $ t source @?= Right core
@@ -74,8 +74,8 @@ global :: TestTree
 global = testCase "Global Variables" $
     t ["i = 1", "j = #t", "f a:i b:b = 42", "f i j"] @?= Right core
   where
-    core = [ Let Ref {rname = "i", ri = 0, rty = TInt, rscope = Global} $ Number 1
-           , Let Ref {rname = "j", ri = 0, rty = TBool, rscope = Global} $ Bool True
+    core = [ Let Ref {rname = "i", ri = 0, rty = TInt, rscope = Global} $ Lit $ Number 1
+           , Let Ref {rname = "j", ri = 0, rty = TBool, rscope = Global} $ Lit $ Bool True
            , Lam Ref { rname = "f"
                      , ri = 0
                      , rty = TInt :> TBool :> TInt
@@ -90,8 +90,51 @@ global = testCase "Global Variables" $
              [ Var Ref {rname = "i", ri = 0, rty = TInt, rscope = Global}
              , Var Ref {rname = "j", ri = 0, rty = TBool, rscope = Global}]]
 
--- Helpers
+local :: TestTree
+local = testCase "Support local variables" $ do
+    src <- lines <$> readFile "examples/sum.ol"
+    t src @?= Right core
+  where
+    core = [ Lam add
+             [ Ref {rname = "a", ri = 0, rty = TInt, rscope = Local}
+             , Ref {rname = "b", ri = 0, rty = TInt, rscope = Local}
+             , Ref {rname = "c", ri = 0, rty = TInt, rscope = Local}
+             ]
+             [ Let
+               -- [FIX] - Test fails because t is Extern
+               Ref {rname = "t", ri = 0, rty = TInt, rscope = Local}
+               (App
+                 Ref
+                 { rname = "sum"
+                 , ri = 0
+                 , rty = TInt :> (TInt :> TInt)
+                 , rscope = Extern
+                 }
+                 [ Var Ref {rname = "a", ri = 0, rty = TInt, rscope = Local}
+                 , Var Ref {rname = "b", ri = 0, rty = TInt, rscope = Local}
+                 ])
+             , App
+               Ref
+               { rname = "sum"
+               , ri = 0
+               , rty = TInt :> (TInt :> TInt)
+               , rscope = Extern
+               }
+               -- [FIX] - Test fails because t is Extern
+               [ Var Ref {rname = "t", ri = 0, rty = TInt, rscope = Local}
+               , Var Ref {rname = "c", ri = 0, rty = TInt, rscope = Local}
+               ]
+             ]
+           , App add [Lit (Number 1), Lit (Number 2), Lit (Number 3)]]
 
+    add :: Ref
+    add = Ref { rname = "add"
+              , ri = 0
+              , rty = TInt :> (TInt :> (TInt :> TInt))
+              , rscope = Global
+              }
+
+-- Helpers
 t :: [Text] -> Either Error [Core]
 t code = parse (s code) >>= compile
 

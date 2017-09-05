@@ -188,21 +188,34 @@ infer = mapM emit
         void $ ty f
         return f
 
-    emit (CApp f _) =
-      throwError $ SyntaxError $
-          "Expected function; got `" <> render f <> "` instead"
+    emit (CApp f _) = serr $ "Expected function; got `" <> render f <> "`"
 
     emit (CLet _t var val) =
       emit val >>= \case
-        Lam ref' args body -> do
-          let r = ref' {rname = var}
-          extend var r
-          return $ Lam r args body
-        Lit lit -> do
-          r <- ty (Lit lit) >>= \t' -> return $ Ref var 0 t' Global
-          extend var r
-          return $ Let r lit
-        err -> throwError $ SyntaxError $ toS . render $ err
+          -- `a = 1`
+          Lit lit -> do
+              ref <- ty (Lit lit) >>= \t' -> return $ Ref var 0 t' Global
+              extend var ref
+              return $ Let ref $ Lit lit
+
+          -- `a = b`
+          Var ref -> do
+              extend var ref
+              return $ Var ref
+
+          -- `f x = x`
+          Lam ref' args body -> do
+              let ref = ref' {rname = var}
+              extend var ref
+              return $ Lam ref args body
+
+          -- `a = sum 1 2`
+          f@(App fn args) -> do
+              ref <- ty f >>= \t -> return $ fn {rname = var, rty = t}
+              extend var ref
+              return $ Let ref $ App fn args
+
+          err -> serr $ "Malformed local variable " <> (toS . render $ err)
 
 -- | Rename core to avoid shadowing
 rename :: [Core] -> Compiler [Core]

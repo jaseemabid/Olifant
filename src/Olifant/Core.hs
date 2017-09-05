@@ -78,7 +78,7 @@ data Core
   | Var Ref
   | Lam Ref [Ref] [Core]
   | App Ref [Core]
-  | Let Ref Literal
+  | Let Ref Core
   deriving (Eq, Show)
 
 -- * The machine language
