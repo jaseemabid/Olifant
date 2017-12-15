@@ -50,9 +50,8 @@ executable olifant
 test-suite Olifant-test
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test
-  main-is:             Test.hs
-  other-modules:       Test
-                     , Test.Compiler
+  main-is:             Main.hs
+  other-modules:       Test.Compiler
                      , Test.Gen
                      , Test.Parser
   build-depends:       Olifant

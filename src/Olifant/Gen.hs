@@ -27,7 +27,7 @@ import Olifant.Core
 import Olifant.Compiler hiding (verify)
 
 import Prelude (init, last)
-import Protolude hiding (Type, concat, head, local, mod)
+import Protolude hiding (Type, concat, head, local, mod, moduleName, replace)
 
 import Data.ByteString.Short (toShort)
 
@@ -256,7 +256,7 @@ emit (Let ref val) =
         let t = case val of
               (Lit (Number _)) -> TInt;
               (Lit (Bool _))   -> TBool
-              _                -> error "Non literal global variable"
+              -- _                -> error "Non literal global variable"
         define $ global' t value'
         return res
       res@LocalReference{} ->
