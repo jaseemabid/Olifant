@@ -79,6 +79,16 @@ Non Terminator instructions
 data Instruction = Add | | FAdd | Sub | FSub | Mul | FMul ...
 #+END_SRC
 
+*** Constant
+
+#+BEGIN_SRC haskell
+data Constant
+    = Int { integerBits :: Word32, integerValue :: Integer }
+    | Float { floatValue :: F.SomeFloat }
+    | Null { constantType :: Type }
+    | GlobalReference Type Name
+#+END_SRC
+
 *** [[file:~/Projects/llvm-hs/llvm-hs-pure/src/LLVM/AST/Global.hs::data%20BasicBlock%20%3D%20BasicBlock%20Name%20%5BNamed%20Instruction%5D%20(Named%20Terminator)][BasicBlock]]
 
 LLVM code in a function is a sequence of 'BasicBlock's each with a label, some
