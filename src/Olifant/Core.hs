@@ -49,7 +49,7 @@ data Calculus
 
 -- | Variable Scope
 --
--- Code treats local and global variables differently. A scope type with and
+-- Core treats local and global variables differently. A scope type with and
 -- without unit can be disambiguate at compile time, but that is for some other
 -- day.
 data Scope = Local | Global | Extern
