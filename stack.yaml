@@ -1,1 +1,4 @@
-resolver: lts-10.2
+resolver: lts-11.8
+extra-deps:
+  - llvm-hs-6.2.0
+  - llvm-hs-pure-6.2.0
