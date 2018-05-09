@@ -17,15 +17,15 @@ Grammar:
 
 module Olifant.Parser where
 
-import Olifant.Core hiding (lambda)
+import Olifant.Core
 
 import Prelude   (Char, String)
-import Protolude hiding (bool, handle, many, try, (<|>))
+import Protolude hiding (bool, handle, many, some, try, (<|>))
 
 import Data.Char   (isAlpha)
 
 import Control.Monad (fail)
-import Text.Megaparsec hiding (parse)
+import Text.Megaparsec
 import Text.Megaparsec.Char
 import qualified Text.Megaparsec.Char.Lexer as L
 
