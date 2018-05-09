@@ -210,8 +210,17 @@ infer = mapM emit
               return $ Lam ref args body
 
           -- `a = sum 1 2`
+          --
+          -- Inferring the type of *local* variable `a` from an `Extern`
+          -- function `sum` makes sense, but the scope needs to be explicitly
+          -- corrected to `Local`.
+          --
+          -- This is only a temporary fix till we have global variables that can
+          -- be assigned with a function call.
           f@(App fn args) -> do
-              ref <- ty f >>= \t -> return $ fn {rname = var, rty = t}
+              ref <- ty f >>= \t -> return $ fn { rname = var
+                                                , rty = t
+                                                , rscope = Local}
               extend var ref
               return $ Let ref $ App fn args
 

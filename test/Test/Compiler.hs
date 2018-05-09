@@ -101,7 +101,6 @@ local = testCase "Support local variables" $ do
              , Ref {rname = "c", ri = 0, rty = TInt, rscope = Local}
              ]
              [ Let
-               -- [FIX] - Test fails because t is Extern
                Ref {rname = "t", ri = 0, rty = TInt, rscope = Local}
                (App
                  Ref
@@ -120,7 +119,6 @@ local = testCase "Support local variables" $ do
                , rty = TInt :> (TInt :> TInt)
                , rscope = Extern
                }
-               -- [FIX] - Test fails because t is Extern
                [ Var Ref {rname = "t", ri = 0, rty = TInt, rscope = Local}
                , Var Ref {rname = "c", ri = 0, rty = TInt, rscope = Local}
                ]
