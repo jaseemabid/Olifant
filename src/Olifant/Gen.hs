@@ -102,7 +102,7 @@ declare (Ref n _ t Extern) = define f
   where
     f = functionDefaults { name = lname n
                          , parameters = (params t, False)
-                         , returnType = native $ retT t
+                         , returnType = ptr $ native $ retT t
                          , basicBlocks = []}
 
     -- | Ty to list
@@ -192,7 +192,7 @@ externf :: Ref -> Codegen Operand
 externf r@(Ref _ _ _ Local) =
     err $ "Attempt to externf local variable " <> render r
 externf (Ref n _ t _) =
-    return $ ConstantOperand $ GlobalReference (native t) $ lname n
+    return $ ConstantOperand $ GlobalReference (ptr $ native t) $ lname n
 
 -- | Map from Olifant types to LLVM types
 native :: Ty -> Type
