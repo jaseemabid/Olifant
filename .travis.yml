@@ -1,19 +1,13 @@
-language: haskell
-sudo: false
+language: c
+
+sudo: required
+
+services:
+  - docker
+
 before_install:
-  # Download and unpack the stack executable
-  - mkdir -p ~/.local/bin
-  - export PATH=$HOME/.local/bin:$PATH
-  - travis_retry curl -L https://www.stackage.org/stack/linux-x86_64 | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'
-
-cache:
-  directories:
-    - $HOME/.ghc
-    - $HOME/.cabal
-    - $HOME/.stack
-
-install:
-  - stack setup && stack build
+  -
 
 script:
-  - stack --no-terminal --skip-ghc-check --no-system-ghc test
+  - make container
+  - docker run -it olifant make test
