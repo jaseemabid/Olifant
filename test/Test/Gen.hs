@@ -6,14 +6,42 @@ import Protolude hiding (intercalate)
 
 import Data.Text        (intercalate)
 import Olifant.Compiler (compile)
-import Olifant.Gen      (gen)
+import Olifant.Core     (Ty (..))
+import Olifant.Gen      (gen, native)
 import Olifant.Parser   (parse)
+
+import LLVM.AST.Type
 
 import Test.Tasty
 import Test.Tasty.HUnit
 
 tests :: TestTree
-tests = testGroup "LLVM Code generator" [t1, t2, t3, t4]
+tests = testGroup "LLVM Code generator" [nt, t1, t2, t3, t4]
+
+-- | Validate the mapping from lang types to llvm types.
+nt :: TestTree
+nt = testCaseSteps "Native types" $ \step -> do
+
+    step "Simple primitive types"
+
+    native TInt @?= i64
+    native TBool @?= i1
+
+    -- Damn! I don't have a constant functions!
+
+    step "Unary identity Function"
+
+    native (TInt :> TInt) @?= FunctionType { argumentTypes = [i64]
+                                           , resultType = i64
+                                           , isVarArg = False
+                                           }
+
+    step "Binary Function"
+
+    native (TInt :> TInt :> TInt) @?= FunctionType { argumentTypes = [i64, i64]
+                                                   , resultType = i64
+                                                   , isVarArg = False
+                                                   }
 
 t1 :: TestTree
 t1 = testCase "Identity function" $ do

@@ -199,12 +199,12 @@ native :: Ty -> Type
 native TUnit      = LLVM.AST.Type.void
 native TInt       = i64
 native TBool      = i1
-native (ta :> tb) = FunctionType { argumentTypes = tl ta
-                                 , resultType = native $ retT tb
-                                 , isVarArg = False}
+native t =  FunctionType { argumentTypes = init tlist
+                         , resultType = last tlist
+                         , isVarArg = False}
   where
-    tl (a :> b) = native a : tl b
-    tl t            = [native t]
+    tlist :: [Type]
+    tlist = map native $ flatT t
 
 -- | Generate code for a single expression
 --
