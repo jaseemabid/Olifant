@@ -1,0 +1,4 @@
+.cabal-sandbox
+.git
+.stack-work
+Dockerfile
