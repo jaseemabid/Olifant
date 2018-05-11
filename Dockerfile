@@ -1,6 +1,9 @@
 FROM debian:sid
 MAINTAINER Jaseem Abid <jaseemabid@gmail.com>
 
+ENV LANG en_US.UTF-8
+ENV LC_ALL en_US.UTF-8
+
 WORKDIR /olifant
 
 # Setup base image deps
