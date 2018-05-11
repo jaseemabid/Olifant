@@ -20,3 +20,11 @@ pretty:
 .PHONY: clean
 clean:
 	@rm -f a.ll a.s a.out runtime/olifant.o
+
+.PHONY: container
+container:
+	docker build . -t olifant:latest -t olifant:$(shell git rev-parse HEAD | cut -b1-7)
+
+.PHONY: test
+test:
+	stack test
