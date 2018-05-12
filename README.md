@@ -1,4 +1,4 @@
-# Olifant [![Build Status](https://travis-ci.org/jaseemabid/Olifant.svg?branch=master)](https://travis-ci.org/jaseemabid/olifant)
+# Olifant [![Build Status](https://travis-ci.org/jaseemabid/Olifant.svg?branch=master)](https://travis-ci.org/jaseemabid/Olifant)
 
 A simple functional language targeting LLVM, __WIP__
 
