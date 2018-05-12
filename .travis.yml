@@ -5,5 +5,11 @@ sudo: required
 services:
   - docker
 
+before_install:
+  - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+  - docker info | grep Username
+  - docker pull olifant/olifant
+
 script:
   - make ctest
+  - make push
