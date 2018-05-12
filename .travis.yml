@@ -5,9 +5,5 @@ sudo: required
 services:
   - docker
 
-before_install:
-  -
-
 script:
-  - make container
-  - docker run -it olifant make test
+  - make ctest
