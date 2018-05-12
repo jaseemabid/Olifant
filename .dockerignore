@@ -1,4 +1,11 @@
 .cabal-sandbox
+.dockerignore
 .git
 .stack-work
+.travis.yml
+.watsonrc
 Dockerfile
+Makefile
+docs
+examples
+llvm-examples
