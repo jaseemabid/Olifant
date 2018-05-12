@@ -23,7 +23,14 @@ clean:
 
 .PHONY: container
 container:
-	docker build . -t olifant:latest -t olifant:$(shell git rev-parse HEAD | cut -b1-7)
+	docker build . \
+		-t jaseemabid/olifant:latest \
+		-t jaseemabid/olifant:$(shell git rev-parse HEAD | cut -b1-7) \
+		--cache-from jaseemabid/olifant:latest
+
+.PHONY: ctest
+ctest: container
+	docker run -it jaseemabid/olifant stack test
 
 .PHONY: test
 test:
