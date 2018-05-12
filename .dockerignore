@@ -7,5 +7,4 @@
 Dockerfile
 Makefile
 docs
-examples
 llvm-examples
