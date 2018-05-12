@@ -4,14 +4,14 @@ MAINTAINER Jaseem Abid <jaseemabid@gmail.com>
 ENV LANG en_US.UTF-8
 ENV LC_ALL en_US.UTF-8
 
-WORKDIR /olifant
-
 # Setup base image deps
 RUN apt-get update && apt-get install -y \
     clang-6.0 \
     g++ \
     haskell-stack \
     llvm-6.0 \
+    locales \
+    locales-all \
     netbase \
     && rm -rf /var/lib/apt/lists/*
 
@@ -24,7 +24,8 @@ ENV PATH="/root/.local/bin:${PATH}"
 RUN stack upgrade
 
 # Setup the Haskell version from stack.yml, this should change only rarely
-ADD stack.yaml /olifant
+WORKDIR /olifant
+ADD stack.yaml .
 RUN stack setup --no-terminal
 
 # Explicit update for better caching, this is a huge download
