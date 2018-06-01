@@ -1,4 +1,4 @@
-# Olifant [![Build Status](https://travis-ci.org/jaseemabid/Olifant.svg?branch=master)](https://travis-ci.org/jaseemabid/Olifant)
+# Olifant [![Build Status](https://travis-ci.org/jaseemabid/Olifant.svg?branch=master)](https://travis-ci.org/jaseemabid/Olifant) [![Docker Repository on Quay](https://quay.io/repository/jaseemabid/olifant/status "Docker Repository on Quay")](https://quay.io/repository/jaseemabid/olifant)
 
 A simple functional language targeting LLVM, __WIP__
 
@@ -29,6 +29,11 @@ Clang.
     9
 
 The compiler accepts programs from stdin or takes a file as argument.
+
+Docker images are automatically built by quay.io as well as by Travis CI as part
+of automated testing. Any of the following work.
+
+    $ docker pull olifant/olifant
 
 I would *LOVE* any code contributions. There is a [milestone][milestone] to
 track priority bugs and features if you are looking for some inspiration.
