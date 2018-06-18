@@ -4,6 +4,7 @@ Description : Core languages of the compiler
 -}
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE TypeSynonymInstances       #-}
 
 module Olifant.Core where
@@ -57,9 +58,9 @@ data Scope = Local | Global | Extern
 
 -- | A reference type
 data Ref = Ref
-    { rname :: Text   -- ^ User defined name of the variable
-    , ri    :: Int    -- ^ Disambiguate the same name. Eg, a0, a1, a2
-    , rty   :: Ty     -- ^ Type of the reference
+    { rname  :: Text   -- ^ User defined name of the variable
+    , ri     :: Int    -- ^ Disambiguate the same name. Eg, a0, a1, a2
+    , rty    :: Ty     -- ^ Type of the reference
     , rscope :: Scope -- ^ Is the variable local, global or unknown?
     } deriving (Eq, Ord, Show)
 

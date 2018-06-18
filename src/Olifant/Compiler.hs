@@ -2,16 +2,16 @@
 Module      : Olifant.Compiler
 Description : Compile Calculus to Core
 -}
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Olifant.Compiler where
 
-import           Olifant.Core
+import Olifant.Core
 
-import           Prelude (last)
-import           Protolude hiding (Const, panic)
 import qualified Data.Map.Strict as Map
+import           Prelude         (last)
+import           Protolude       hiding (Const, panic)
 
 -- | Env maps textual representation to a refined reference
 type Env = Map Text Ref

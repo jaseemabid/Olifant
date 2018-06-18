@@ -23,10 +23,10 @@ Ref: http://www.aosabook.org/en/ghc.html § No Symbol Table
 
 module Olifant.Gen where
 
-import Olifant.Core
 import Olifant.Compiler hiding (verify)
+import Olifant.Core
 
-import Prelude (init, last)
+import Prelude   (init, last)
 import Protolude hiding (Type, concat, head, local, mod, moduleName, replace)
 
 import Data.ByteString.Short (toShort)
@@ -37,8 +37,8 @@ import LLVM.AST.CallingConvention
 import LLVM.AST.Constant
 import LLVM.AST.Global
 import LLVM.AST.Type
-import LLVM.Context (withContext)
-import LLVM.Module (moduleLLVMAssembly, withModuleFromAST)
+import LLVM.Context               (withContext)
+import LLVM.Module                (moduleLLVMAssembly, withModuleFromAST)
 import LLVM.PassManager
 
 -- | State of the complete program

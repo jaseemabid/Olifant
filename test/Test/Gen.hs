@@ -71,4 +71,4 @@ t5 = testCase "Native function" $ do
 t :: [Text] -> Text -> IO ()
 t code ir = case compile <$> parse (intercalate "\n" code) of
     Right (Right x) -> gen x >>= \l -> l @?= Right ir
-    err -> assertFailure $ show err
+    err             -> assertFailure $ show err

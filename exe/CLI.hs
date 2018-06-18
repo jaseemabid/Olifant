@@ -90,7 +90,7 @@ parseArgs ("-l": args) =
                 Right t ->
                     case args of
                         [file] -> writeFile (takeBaseName file ++ ".ll") t
-                        _ -> putStrLn t
+                        _      -> putStrLn t
                 Left e  -> putStrLn $ render e
         Nothing -> usage
 

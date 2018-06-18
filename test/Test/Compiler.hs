@@ -8,7 +8,7 @@ import Olifant.Compiler (compile)
 import Olifant.Core
 import Olifant.Parser
 
-import Data.Text (intercalate, lines)
+import Data.Text        (intercalate, lines)
 import Test.Tasty
 import Test.Tasty.HUnit
 
