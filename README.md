@@ -23,9 +23,9 @@ which can be read with Haddock.
 Olifant programs can be compiled to LLVM IR and then to native binaries with
 Clang.
 
-    $ stack exec olifant <<< 'sum 4 5' > a.ll
-    $ make a.out
-    $ ./a.out
+    $ stack exec olifant <<< 'sum 4 5' > sum.ll
+    $ make sum
+    $ ./sum
     9
 
 The compiler accepts programs from stdin or takes a file as argument.

@@ -1,13 +1,25 @@
-a.out: a.ll runtime/olifant.o
-	clang ./runtime/olifant.o a.ll
+#
+# This Makefile uses a bunch of magic variables, as explained here in the
+# manual.
+# https://www.gnu.org/software/make/manual/html_node/Automatic-Variables.html#Automatic-Variables
+#
+# $@ : The file name of the target of the rule.
+# $< : The first prerequisite; usually the input file
+#
 
-a.s: a.ll
-	clang -S -fno-asynchronous-unwind-tables ./runtime/olifant.o a.ll
+RUNTIME = runtime/olifant.o
+CCFLAGS = -g -ggdb3 -m64 -Wall -Wpedantic -fno-asynchronous-unwind-tables
 
 # PIC stands for position independent code, explained here
 # https://stackoverflow.com/questions/5311515/gcc-fpic-option
-runtime/olifant.o: runtime/olifant.c
-	clang -Wall -Wpedantic -fPIC -c runtime/olifant.c -o runtime/olifant.o
+$(RUNTIME): runtime/olifant.c
+	clang $(CCFLAGS) -fPIC -c $< -o $@
+
+%: %.ll $(RUNTIME)
+	clang $(CCFLAGS) $(RUNTIME) $< -o $@
+
+%.s: %.ll $(RUNTIME)
+	clang $(CCFLAGS) $(RUNTIME) -S $< -o $@
 
 .PHONY: docs
 docs: src
@@ -19,7 +31,7 @@ pretty:
 
 .PHONY: clean
 clean:
-	@rm -f a.ll a.s a.out runtime/olifant.o
+	@rm -f *.ll *.s *.out $(RUNTIME)
 
 .PHONY: container
 container:
