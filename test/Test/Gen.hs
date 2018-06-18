@@ -16,7 +16,7 @@ import Test.Tasty
 import Test.Tasty.HUnit
 
 tests :: TestTree
-tests = testGroup "LLVM Code generator" [nt, t1, t2, t3, t4]
+tests = testGroup "LLVM Code generator" [nt, t1, t2, t3, t4, t5]
 
 -- | Validate the mapping from lang types to llvm types.
 nt :: TestTree
@@ -62,6 +62,11 @@ t4 :: TestTree
 t4 = testCase "Shadow variables" $ do
     ir <- readFile "test/ll/shadow.ll"
     t ["a = 1", "f a:i = a", "f a"] ir
+
+t5 :: TestTree
+t5 = testCase "Native function" $ do
+    ir <- readFile "test/ll/sum.ll"
+    t ["sum 4 5"] ir
 
 t :: [Text] -> Text -> IO ()
 t code ir = case compile <$> parse (intercalate "\n" code) of

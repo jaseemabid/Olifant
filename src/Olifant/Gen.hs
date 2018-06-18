@@ -102,7 +102,7 @@ declare (Ref n _ t Extern) = define f
   where
     f = functionDefaults { name = lname n
                          , parameters = (params t, False)
-                         , returnType = ptr $ native $ retT t
+                         , returnType = native $ retT t
                          , basicBlocks = []}
 
     -- | Ty to list
