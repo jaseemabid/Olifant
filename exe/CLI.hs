@@ -16,7 +16,7 @@ import Olifant.Gen      (gen)
 import Olifant.Parser
 
 import System.Environment (getArgs)
-import System.FilePath    (replaceExtension)
+import System.FilePath    (takeBaseName)
 import System.IO          (hReady)
 
 usage :: IO ()
@@ -70,7 +70,7 @@ parseArgs [file] = do
     source <- readFile file
     ll <- exec source
     case ll of
-        Right ir -> writeFile (replaceExtension file ".ll") ir
+        Right ir -> writeFile (takeBaseName file ++ ".ll") ir
         Left err -> putStrLn $ render err
 
 parseArgs _ =
