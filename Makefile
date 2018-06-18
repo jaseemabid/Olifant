@@ -8,7 +8,7 @@
 #
 
 RUNTIME = runtime/olifant.o
-CCFLAGS = -g -ggdb3 -m64 -Wall -Wpedantic -fno-asynchronous-unwind-tables
+CCFLAGS = -g -ggdb3 -m64 -Wall -Wpedantic -Wno-override-module -fno-asynchronous-unwind-tables
 
 # PIC stands for position independent code, explained here
 # https://stackoverflow.com/questions/5311515/gcc-fpic-option
