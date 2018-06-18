@@ -8,7 +8,7 @@ Description : The CLI interface to Olifant
 module Main where
 
 import Prelude   (String)
-import Protolude hiding (handle, mod, sin)
+import Protolude hiding (mod, sin)
 
 import Olifant.Compiler
 import Olifant.Core
@@ -18,9 +18,11 @@ import Olifant.Parser
 import System.Environment (getArgs)
 import System.FilePath    (takeBaseName)
 import System.IO          (hReady)
+import System.Process     (callCommand)
+
 
 usage :: IO ()
-usage = putStrLn ("Usage: olifant [-vh] [file] " :: Text)
+usage = putStrLn ("Usage: olifant [-vhcp] [file] " :: Text)
 
 version :: IO ()
 version = putStrLn ("The Glorious Olifant, version 0.0.0.1" :: Text)
@@ -40,44 +42,81 @@ exec str =
                 Left e       -> return $ Left e
         Left e -> return $ Left e
 
-sin :: IO (Maybe Text)
-sin =
-    hReady stdin >>= \case
-        False -> return Nothing
-        True ->
-            getContents >>= \case
-                "\n" -> return Nothing
-                source -> return $ Just source
+-- | Generate an executable from the generated llvm IR.
+--
+-- This is fairly messy and could be refactored a bit.
+--
+-- 1. Directly using `make` could delete a lot of duplicated code.
+-- 2. Use mktemp for the temp files once
+--    https://github.com/haskell/unix/issues/112 gets fixed.
+-- 3. Cleanup temp files after completion.
+--
+binary :: Text -> IO ()
+binary ll = do
+    writeFile tmp ll
+    callCommand cmd
+    callCommand ofile
+
+  where
+    -- Keep this in sync with the Makefile
+    runtime = "runtime/olifant.o"
+    ccflags = "-g -ggdb3 -m64 -Wall -Wpedantic -fno-asynchronous-unwind-tables -Wno-override-module"
+    ofile   = "/tmp/cmd.exe"
+
+    tmp = "/tmp/Olifant.XXX.ll"
+    cmd = "clang " ++ ccflags ++ " " ++ runtime ++ " " ++ tmp ++ " -o " ++ ofile
+
+-- | Get the input from a file or stdin
+sin :: [String] -> IO (Maybe Text)
+sin [file] = Just <$> readFile file
+sin _ = hReady stdin >>= \case
+    False -> return Nothing
+    True ->
+        getContents >>= \case
+        "\n" -> return Nothing
+        source -> return $ Just source
 
 parseArgs :: [String] -> IO ()
-parseArgs ["-h"] = usage
-parseArgs ["-v"] = version
-parseArgs ["-p"] =
-    sin >>= \case
-        Just src ->
-            case parse src of
-                Right t -> print t
+
+parseArgs ("-h": _) = usage
+parseArgs ("-v": _) = version
+
+-- Dump LLVM IR
+parseArgs ("-l": args) =
+    sin args >>= \case
+        Just src -> do
+            ll <- exec src
+            case ll of
+                Right t ->
+                    case args of
+                        [file] -> writeFile (takeBaseName file ++ ".ll") t
+                        _ -> putStrLn t
                 Left e  -> putStrLn $ render e
         Nothing -> usage
-parseArgs ["-c"] =
-    sin >>= \case
+
+-- Dump core, pipe to hindent to make the output readable
+parseArgs ("-c": args) =
+    sin args >>= \case
         Just src ->
             case core src of
                 Right t -> print t
                 Left e  -> putStrLn $ render e
         Nothing -> usage
-parseArgs [file] = do
-    source <- readFile file
-    ll <- exec source
-    case ll of
-        Right ir -> writeFile (takeBaseName file ++ ".ll") ir
-        Left err -> putStrLn $ render err
 
-parseArgs _ =
-    sin >>= \case
+-- Dump parser output, pipe to hindent to make the output readable
+parseArgs ("-p": args) =
+    sin args >>= \case
+        Just src ->
+            case parse src of
+                Right t -> print t
+                Left e  -> putStrLn $ render e
+        Nothing -> usage
+
+parseArgs args =
+    sin args >>= \case
         Just src ->
             exec src >>= \case
-                Right ir -> putStrLn ir
+                Right ir -> binary ir
                 Left err -> putStrLn $ render err
         Nothing -> usage
 

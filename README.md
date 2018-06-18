@@ -20,13 +20,29 @@ which can be read with Haddock.
 
     $ stack haddock --no-haddock-deps --open
 
-Olifant programs can be compiled to LLVM IR and then to native binaries with
-Clang.
+Olifant programs can be compiled to native binaries and executed in one step.
 
-    $ stack exec olifant <<< 'sum 4 5' > sum.ll
-    $ make sum
-    $ ./sum
-    9
+    $ stack exec olifant <<< 'sum 4 5'
+    $ 9
+
+The intermediary forms can be exported with additional flags. For example, the
+output of the parser can be viewed with `-p`.
+
+    $ stack exec olifant -- -p <<< 'sum 4 5'
+
+```haskell
+[ App (Ref
+       {rname = "sum", ri = 0, rty = TInt :> (TInt :> TInt), rscope = Extern})
+      [Lit (Number 4), Lit (Number 5)]
+]
+```
+
+Similarly, Core is exported with `-c` and the intermediary LLVM IR is exported
+with `-l`
+
+    $ olifant -l examples/vars.ol
+    $ file vars.ll
+    vars.ll: ASCII text
 
 The compiler accepts programs from stdin or takes a file as argument.
 
