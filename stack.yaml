@@ -1,4 +1,18 @@
-resolver: lts-11.11
+resolver: lts-12.13
+
+allow-newer: true
+
+packages:
+  - '.'
+  - location:
+      git: https://github.com/llvm-hs/llvm-hs-pretty
+      commit: 0d04346
+
 extra-deps:
-  - llvm-hs-6.2.0
-  - llvm-hs-pure-6.2.0
+  - megaparsec-7.0.0
+  - llvm-hs-pure-7.0.0
+  - llvm-hs-7.0.1
+
+flags:
+  llvm-hs:
+    shared-llvm: true
