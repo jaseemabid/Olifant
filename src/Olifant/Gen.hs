@@ -40,6 +40,7 @@ import LLVM.AST.Type
 import LLVM.Context               (withContext)
 import LLVM.Module                (moduleLLVMAssembly, withModuleFromAST)
 import LLVM.PassManager
+import LLVM.Pretty
 
 -- | State of the complete program
 data GenState = GenState
@@ -299,6 +300,10 @@ genm prog = execM (run prog) genState >>= return . mod
 passes :: PassSetSpec
 passes = defaultCuratedPassSetSpec {optLevel = Just 0}
 
+-- | Generate native code with pretty printer
+toLLVMPP :: Module -> IO Text
+toLLVMPP modl = return $ toS $ ppllvm $ modl
+
 -- | Generate native code with C++ FFI
 toLLVM :: Module -> IO Text
 toLLVM modl =
@@ -315,7 +320,7 @@ gen :: [Core] -> IO (Either Error Text)
 gen ast =
     case genm ast of
         Left e     -> return $ Left e
-        Right mod' -> toLLVM mod' >>= return . Right
+        Right mod' -> toLLVMPP mod' >>= return . Right
 
 err :: Text -> Codegen a
 err = throwError . GenError
