@@ -27,6 +27,7 @@ import Data.Char (isAlpha)
 import           Control.Monad              (fail)
 import           Text.Megaparsec
 import           Text.Megaparsec.Char
+import           Text.Megaparsec.Debug
 import qualified Text.Megaparsec.Char.Lexer as L
 
 -- | Parser type alias
@@ -208,7 +209,7 @@ parse' :: Parser [Calculus] -> Text -> Either Error [Calculus]
 parse' _ "" = Right []
 parse' p' input =
     case runParser p' "" (toS input) of
-        Left err  -> Left $ ParseError $ toS $ parseErrorPretty' input err
+        Left err  -> Left $ ParseError $ toS $ errorBundlePretty err
         Right val -> Right val
 
 -- | Parse source and return AST
