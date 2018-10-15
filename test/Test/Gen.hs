@@ -2,9 +2,9 @@
 
 module Test.Gen (tests) where
 
-import Protolude hiding (intercalate)
+import Protolude hiding (compare, intercalate, isPrefixOf, replace)
 
-import Data.Text        (intercalate)
+import Data.Text        hiding (filter)
 import Olifant.Compiler (compile)
 import Olifant.Core     (Ty (..))
 import Olifant.Gen      (gen, native)
@@ -70,5 +70,17 @@ t5 = testCase "Native function" $ do
 
 t :: [Text] -> Text -> IO ()
 t code ir = case compile <$> parse (intercalate "\n" code) of
-    Right (Right x) -> gen x >>= \l -> l @?= Right ir
+    Right (Right x) -> gen x >>= \(Right l) -> compare l ir
     err             -> assertFailure $ show err
+
+-- | Compare LLVM IR for approximate equality. Removes newlines and comments.
+compare :: Text -> Text -> Assertion
+compare a b = f a @?= f b
+  where
+    newlines :: Text -> Text
+    newlines = replace "\n" ""
+
+    comments :: Text -> Text
+    comments x = unlines $ filter (\line -> "\n" `isPrefixOf` line) (lines x)
+
+    f = newlines . comments
