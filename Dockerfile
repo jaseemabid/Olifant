@@ -19,32 +19,36 @@ RUN apt-get update && apt-get install -y \
 # upgrade before it works. netbase is a required dependency to provide
 # /etc/protocols, that's missing as well.
 # Ref https://github.com/bos/wreq/issues/5#issuecomment-108086543
-
 ENV PATH="/root/.local/bin:${PATH}"
 RUN stack upgrade
 
-# Setup the Haskell version from stack.yml, this should change only rarely
 WORKDIR /olifant
 ADD stack.yaml .
-RUN stack setup --no-terminal
+
+# Setup the GHC and libraries based on Stackage version without any application
+# code for efficient docker cache.
+RUN stack setup
 
 # Explicit update for better caching, this is a huge download
 RUN stack update
 
-# Having to add source files before installing big deps has a huge performance
-# cost, but that can be fixed later.
+# Install the heaviest deps. Rerunning this is very expensive
+
+# Stack fails to install packages in a folder with stack.yaml if the rest of the
+# project is missing with the following error. Quick workaround is to cd /
 #
-# Avoiding this line will make the next step fail with the error
-#
-# ```
-# Stack looks for packages in the directories configured in the 'packages' and 'extra-deps' fields defined in your stack.yaml
-# The current entry points to /olifant/ but no .cabal or package.yaml file could be found there.
-# ```
+# > Stack looks for packages in the directories configured in the 'packages' and
+# > 'extra-deps' fields defined in your stack.yaml. The current entry points to
+# > /olifant/ but no .cabal or package.yaml file could be found there.
+
+RUN cd /tmp && stack install bytestring containers mtl parsec protolude tasty text \
+     --resolver $(grep resolver /olifant/stack.yaml | awk '{print $2}')
+
+# Install explicitly mentioned additional dependencies like llvm-hs
+RUN cd /tmp && stack install megaparsec-7.0.0
+RUN cd /tmp && stack install llvm-hs-pure-7.0.0 llvm-hs-7.0.1
 
 ADD . /olifant
-
-# Install the heaviest deps, rerunning this takes a long time
-RUN stack install llvm-hs llvm-hs-pure
 
 # Build without running tests for better caching
 RUN stack build --test --no-run-tests
