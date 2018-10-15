@@ -6,10 +6,10 @@ ENV LC_ALL en_US.UTF-8
 
 # Setup base image deps
 RUN apt-get update && apt-get install -y \
-    clang-6.0 \
+    clang-7 \
     g++ \
     haskell-stack \
-    llvm-6.0 \
+    llvm-7 \
     locales \
     locales-all \
     netbase \
